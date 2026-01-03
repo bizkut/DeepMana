@@ -288,16 +288,9 @@ class Game:
         if random.random() < 0.5:
             self.players = [player2, player1]
         
-        # Give second player The Coin
-        coin_data = CardData(
-            card_id="GAME_005",
-            name="The Coin",
-            text="Gain 1 Mana Crystal this turn only.",
-            cost=0,
-            card_type=CardType.SPELL,
-            card_set="CORE"
-        )
-        coin = Spell(coin_data, self)
+        # Give second player The Coin (using create_card to Ensure effects are loaded)
+        from .factory import create_card
+        coin = create_card("GAME_005", self)
         self.players[1].add_to_hand(coin)
         
         self.phase = GamePhase.MULLIGAN

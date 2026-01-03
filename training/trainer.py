@@ -35,7 +35,7 @@ class Trainer:
         self.epochs_per_iter = 5
         self.num_iterations = 100         # More iterations for better learning
         self.games_per_iter = 40          # More self-play games per iteration (8 at a time)
-        self.mcts_sims = 100              # More MCTS simulations = better decisions
+        self.mcts_sims = 40      # Higher sims for better balance during self-play
         self.buffer_capacity = 100000     # Keep more history
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
