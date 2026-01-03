@@ -53,7 +53,8 @@ class CardData:
     outcast: bool = False
     
     # New mechanics (2020+)
-    colossal: bool = False          # Summons appendages
+    # Expansion specific flags
+    colossal_count: int = 0         # Colossal +X appendages
     colossal_appendages: List[str] = field(default_factory=list)  # IDs of appendage cards
     titan: bool = False             # Has 3 titan abilities
     titan_abilities: List[str] = field(default_factory=list)  # IDs of titan abilities
@@ -203,6 +204,7 @@ class Card(Entity):
         self._frenzy_triggered: bool = False      # Has frenzy been used?
         self._infuse_progress: int = 0            # Current infuse count
         self._infused: bool = False               # Is card infused?
+        self.titan_abilities_used: List[str] = [] # Ability IDs already used
     
     def clone(self) -> 'Card':
         """Create a deep copy of the card."""

@@ -228,6 +228,26 @@ class Game:
         self.check_for_game_over()
         return True
     
+    def discover_from_sideboard(self, parent_card: Card, callback: Callable) -> bool:
+        """Start a discover from a card's sideboard (e.g. E.T.C. Band)."""
+        player = parent_card.controller
+        if not player or parent_card.card_id not in player.sideboard:
+            return False
+            
+        module_ids = player.sideboard[parent_card.card_id]
+        if not module_ids:
+            return False
+            
+        from .factory import create_card
+        options = [create_card(cid, player) for cid in module_ids]
+        
+        self.pending_choices = {
+            "source": parent_card,
+            "options": options,
+            "callback": callback
+        }
+        return True
+
     def _apply_dark_gift(self, minion: Card) -> None:
         """
         Apply a random Dark Gift bonus to a minion.
@@ -602,6 +622,73 @@ class Game:
         
         # Remove from hand
         player.remove_from_hand(card)
+        
+        return self._finish_play_card(player, card, target, position, is_echo, is_quickdraw, is_outcast)
+
+    def trade_card(self, card: Card) -> bool:
+        """Trade a card from hand for 1 mana."""
+        player = self.current_player
+        if not card.data.tradeable or player.mana < 1:
+            return False
+            
+        player.mana -= 1
+        player.remove_from_hand(card)
+        player.add_to_deck(card)
+        player.shuffle_deck()
+        player.draw(1)
+        
+        self._log_action("trade_card", {"card": card.card_id})
+        return True
+
+    def forge_card(self, card: Card) -> bool:
+        """Forge a card from hand for 2 mana."""
+        player = self.current_player
+        if not card.data.forge or player.mana < 2:
+            return False
+            
+        player.mana -= 2
+        # Transform card in hand to its forged version
+        from .factory import create_card
+        forged = create_card(card.data.forged_version, player)
+        if forged:
+            idx = player.hand.index(card)
+            player.hand[idx] = forged
+            forged._forged = True
+            self._log_action("forge_card", {"card": card.card_id, "forged_into": forged.card_id})
+            return True
+        return False
+
+    def use_titan_ability(self, titan: Card, ability_idx: int, target: Optional[Card] = None) -> bool:
+        """Use one of the 3 Titan abilities."""
+        if not titan.data.titan or titan.attacks_this_turn > 0:
+            return False
+            
+        if ability_idx >= len(titan.data.titan_abilities):
+            return False
+            
+        ability_id = titan.data.titan_abilities[ability_idx]
+        if ability_id in titan.titan_abilities_used:
+            return False
+            
+        # Trigger ability effect
+        handler = self._get_effect_handler(titan.card_id, f"titan_ability_{ability_idx}")
+        if handler:
+            handler(self, titan.controller, titan, target=target)
+            
+        titan.titan_abilities_used.append(ability_id)
+        titan.attacks_this_turn += 1
+        titan.exhausted = True # Titan is exhausted after using ability
+        
+        # If all abilities used, Titan can attack normally from next turn
+        if len(titan.titan_abilities_used) >= 3:
+            # Maybe set a flag or just let it attack normally next turn
+            pass
+            
+        self._log_action("titan_ability", {"titan": titan.card_id, "ability": ability_id})
+        return True
+
+    def _finish_play_card(self, player, card, target, position, is_echo, is_quickdraw, is_outcast) -> bool:
+        """Internal helper to finish the play card logic."""
         
         # Log action
         self._log_action("play_card", {
