@@ -51,13 +51,19 @@ class LogWatcher:
         return None
 
     def start(self):
-        """Starts the watching loop (blocking, meant to be run in a thread)."""
-        self.log_path = self.find_power_log()
-        if not self.log_path:
-            print("LogWatcher: Power.log not found.")
-            return
+        """Starts the watching loop (blocking)."""
+        print("LogWatcher: Searching for Power.log...")
+        self._running = True
+        
+        while not self.log_path and self._running:
+            self.log_path = self.find_power_log()
+            if not self.log_path:
+                time.sleep(5)
+                # We could callback status update here if we passed a status_callback
+                
+        if not self._running: return
 
-        print(f"LogWatcher: Watching {self.log_path}")
+        print(f"LogWatcher: Found {self.log_path}")
         self._running = True
         
         try:
@@ -66,7 +72,8 @@ class LogWatcher:
                 # For a coaching bot, we might need the WHOLE history to reconstruct state if started mid-game.
                 # Ideally, we read from the beginning of the CURRENT game?
                 # For now, let's seek end to catch live events.
-                file.seek(0, 2)
+                # Read from beginning to reconstruct full game state
+                file.seek(0, 0)
                 
                 while self._running:
                     line = file.readline()

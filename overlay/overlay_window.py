@@ -11,6 +11,7 @@ class OverlayWindow(QMainWindow):
         # State
         self.arrow_start = None
         self.arrow_end = None
+        self.highlight_pos = None
         
         # Window Settings
         self.setWindowFlags(
@@ -56,13 +57,21 @@ class OverlayWindow(QMainWindow):
         """Sets arrow coordinates (objects with x, y attributes)."""
         self.arrow_start = start
         self.arrow_end = end
-        self.update() # Trigger repaint
+        self.highlight_pos = None  # Clear highlight when setting arrow
+        self.update()
+    
+    def set_highlight(self, pos):
+        """Sets a highlight circle position (for cards without targets)."""
+        self.highlight_pos = pos
+        self.arrow_start = None
+        self.arrow_end = None
+        self.update()
 
     def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
         if self.arrow_start and self.arrow_end:
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            
             # Draw Line
             pen = QPen(QColor(0, 255, 0, 200), 6)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -75,7 +84,16 @@ class OverlayWindow(QMainWindow):
             
             # Draw Circle at Target
             painter.setBrush(QColor(0, 255, 0, 100))
-            painter.drawEllipse(end, 15, 15)
+            painter.drawEllipse(end, 20, 20)
+        
+        elif self.highlight_pos:
+            # Draw highlight circle only (for cards without targets)
+            pos = QPointF(float(self.highlight_pos.x), float(self.highlight_pos.y))
+            
+            pen = QPen(QColor(255, 215, 0, 220), 4)  # Gold color
+            painter.setPen(pen)
+            painter.setBrush(QColor(255, 215, 0, 80))
+            painter.drawEllipse(pos, 35, 35)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
