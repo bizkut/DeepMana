@@ -50,6 +50,12 @@ class Game:
             "on_damage_taken": [],
             "on_card_played": [],
             "on_hero_power": [],
+            # Secret triggers
+            "on_attack": [],           # Before any attack
+            "on_spell_cast": [],       # When opponent plays a spell
+            "on_minion_played": [],    # When opponent plays a minion
+            "on_hero_attacked": [],    # When hero is attacked
+            "on_friendly_death": [],   # When friendly minion dies
         }
         
         # Death processing
@@ -247,6 +253,67 @@ class Game:
                 print(f"CRITICAL ERROR executing trigger '{event_name}' for {source.name} ({source.card_id}): {e}")
                 raise e
 
+    def trigger_secrets(self, event_type: str, triggering_player: Player, **kwargs) -> Optional[Card]:
+        """
+        Check and trigger secrets for the opponent of triggering_player.
+        
+        Args:
+            event_type: Type of event (attack, spell_cast, minion_played, hero_attacked)
+            triggering_player: The player who performed the action
+            **kwargs: Additional context (attacker, defender, spell, minion, etc.)
+            
+        Returns:
+            The triggered secret card, or None if no secret triggered.
+        """
+        # Secrets trigger for the OPPONENT of the acting player
+        opponent = self.get_opponent(triggering_player)
+        if not opponent or not opponent.secrets:
+            return None
+        
+        triggered_secret = None
+        
+        for secret in list(opponent.secrets):  # Copy list to allow modification
+            # Get the secret's effect handler
+            handler = self._get_secret_handler(secret.card_id, event_type)
+            if handler:
+                # Check if the secret should trigger
+                should_trigger = handler(self, opponent, secret, **kwargs)
+                if should_trigger:
+                    # Secret triggered! Remove it from play
+                    opponent.secrets.remove(secret)
+                    secret.zone = Zone.GRAVEYARD
+                    opponent.graveyard.append(secret)
+                    triggered_secret = secret
+                    # Only one secret triggers per event
+                    break
+        
+        return triggered_secret
+
+    def _get_secret_handler(self, card_id: str, event_type: str) -> Optional[Callable]:
+        """Get the secret handler for a specific card and event type."""
+        try:
+            # Try to import the effect module
+            import importlib
+            
+            # Search in multiple effect folders
+            for folder in ['classic', 'basic', 'naxx', 'gvg', 'tgt', 'wog', 'msg', 
+                          'ungoro', 'kft', 'knc', 'witchwood', 'boomsday', 'rastakhan',
+                          'ros', 'uldum', 'dragons', 'outland', 'scholomance', 'darkmoon',
+                          'barrens', 'stormwind', 'alterac', 'sunken', 'nathria', 'lich',
+                          'titans', 'badlands', 'whizbang', 'great_dark_beyond', 'perils',
+                          'space', 'core']:
+                try:
+                    module = importlib.import_module(f"card_effects.{folder}.effect_{card_id}")
+                    # Look for the event handler in the module
+                    handler_name = f"on_{event_type}"
+                    if hasattr(module, handler_name):
+                        return getattr(module, handler_name)
+                except ImportError:
+                    continue
+            return None
+        except Exception:
+            return None
+
     @property
     def current_player(self) -> Player:
         """Get the current player."""
@@ -441,6 +508,15 @@ class Game:
         player.minions_played_this_game_list.append(minion.card_id)
         self.fire_event("on_minion_summon", minion)
         
+        # === TRIGGER SECRETS AFTER SUMMON ===
+        # Check for minion-played secrets (e.g., Mirror Entity, Snipe, Potion of Polymorph)
+        self.trigger_secrets("minion_played", player, minion=minion)
+        
+        # Check if minion is still alive after secret (e.g., Snipe killed it)
+        if minion.health <= 0:
+            self.process_deaths()
+            return True
+        
         # Trigger battlecry
         if card.data.battlecry:
             self._trigger_battlecry(minion, target)
@@ -455,6 +531,17 @@ class Game:
         """Play a spell card."""
         player = self.current_player
         player.spells_played_this_turn += 1
+        
+        # === TRIGGER SECRETS BEFORE SPELL EFFECT ===
+        # Check for spell-triggered secrets (e.g., Counterspell, Spellbender)
+        triggered = self.trigger_secrets("spell_cast", player, spell=card, target=target)
+        
+        # If Counterspell triggered, the spell is countered
+        if triggered and triggered.card_id in ["EX1_287", "CORE_EX1_287"]:  # Counterspell IDs
+            # Move to graveyard without effect
+            card.zone = Zone.GRAVEYARD
+            player.graveyard.append(card)
+            return True
         
         # Trigger spell effect
         if card.card_id in self._battlecry_handlers:
@@ -514,6 +601,23 @@ class Game:
         
         # Increment attack counter
         attacker.attacks_this_turn += 1
+        
+        # === TRIGGER SECRETS BEFORE ATTACK ===
+        # Check for attack-triggered secrets (e.g., Explosive Trap, Misdirection)
+        self.trigger_secrets("attack", player, attacker=attacker, defender=defender)
+        
+        # Check if attacker is still alive after secret
+        if not attacker or (hasattr(attacker, 'health') and attacker.health <= 0):
+            self.process_deaths()
+            return True
+        
+        # Check for hero-attacked secrets (e.g., Ice Barrier, Vaporize)
+        if defender.card_type == CardType.HERO:
+            self.trigger_secrets("hero_attacked", player, attacker=attacker, defender=defender)
+            # Re-check attacker health after secret
+            if hasattr(attacker, 'health') and attacker.health <= 0:
+                self.process_deaths()
+                return True
         
         # Calculate damage
         attacker_damage = attacker.attack

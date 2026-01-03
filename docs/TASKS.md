@@ -138,6 +138,20 @@
 
 ---
 
+## ⏳ Phase 12: Advanced Mechanics
+
+| Task | Status | Description |
+|------|--------|-------------|
+| **🔐 Secrets System** | ⏳ | Auto-trigger on attack, spell, turn, etc. |
+| **🤖 Zilliax Modules** | ⏳ | Parse/specify 2 modules per deck, apply stats |
+| **🎸 E.T.C. Band Manager** | ⏳ | Parse/specify 3 band cards, implement Discover |
+| **🔮 Discover UI** | ⏳ | AI chooses between 3 cards (not random) |
+| **🎯 Hero Power Targeting** | ⏳ | Smart targeting for targeted hero powers |
+| **📊 Analytics Page** | ⏳ | Real-time graphs (Loss, Winrate, Stats by deck) |
+| **⚙️ Settings Page** | ⏳ | Configure training params, paths, etc. |
+
+---
+
 ## 📊 Summary
 
 | Phase | Status |
