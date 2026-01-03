@@ -134,7 +134,15 @@ class HearthstoneGame:
         p2.shuffle_deck()
         
         self._game.start_mulligan()
-        self._game.skip_mulligan() # Simplify for RL
+        
+        # Apply a simple "Smart Mulligan": keep cards <= 3 mana
+        for player in self._game.players:
+            to_replace = [c for c in player.hand if c.cost > 3]
+            if to_replace:
+                self._game.do_mulligan(player, to_replace)
+        
+        self._game.phase = 4 # END_MULLIGAN/PLAY phase (Check GamePhase enum)
+        self._game.current_player.start_turn()
         
         self._step_count = 0
         return self.get_state()
