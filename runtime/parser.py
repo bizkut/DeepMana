@@ -43,9 +43,24 @@ class LogParser:
         
         if tag == "ZONE":
             self._handle_zone_change(entity_id, value, entity_data)
+        elif tag == "DAMAGE":
+            # For damage log, we expect a valid ID usually
+            if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity and hasattr(entity, 'damage'):
+                    entity.damage = int(value)
+        elif tag == "CURRENT_PLAYER":
+            if value == "1":
+                # Find player with this name
+                player_name = entity_data.get('name')
+                if player_name:
+                    for idx, p in enumerate(self.game.players):
+                        if p.name == player_name:
+                            self.game.current_player_idx = idx
+                            break
             
     def _parse_entity_str(self, entity_str: str) -> Optional[dict]:
-        """Parses [id=1 cardId=...] block."""
+        """Parses [id=1 cardId=...] block or returns Name dict."""
         match = self.regex_entity_block.search(entity_str)
         if match:
             return {
@@ -53,8 +68,8 @@ class LogParser:
                 'cardId': match.group(2),
                 'name': match.group(3)
             }
-        # TODO: Handle names like "Kevin"
-        return None
+        # Fallback: Plain string (e.g. "Player 2")
+        return {'id': -1, 'name': entity_str}
 
     def _handle_zone_change(self, entity_id: int, zone_value: str, entity_data: dict):
         """Moves card between zones."""
@@ -78,7 +93,13 @@ class LogParser:
             elif entity.zone == Zone.PLAY and entity in entity.controller.board:
                 entity.controller.board.remove(entity)
             elif entity.zone == Zone.DECK:
-                 pass # Deck is not fully tracked as list of objects usually?
+                 pass 
+            elif entity.zone == Zone.GRAVEYARD and entity in entity.controller.graveyard:
+                entity.controller.graveyard.remove(entity)
+            elif entity.zone == Zone.SETASIDE and entity in entity.controller.setaside:
+                entity.controller.setaside.remove(entity)
+            elif entity.zone == Zone.SECRET and entity in entity.controller.secrets:
+                entity.controller.secrets.remove(entity)
             
             # Add to new zone
             entity.zone = new_zone
@@ -87,7 +108,11 @@ class LogParser:
             elif new_zone == Zone.PLAY:
                 entity.controller.board.append(entity)
             elif new_zone == Zone.GRAVEYARD:
-                entity.controller.graveyard.append(entity) # Assuming graveyard list exists
+                entity.controller.graveyard.append(entity)
+            elif new_zone == Zone.SETASIDE:
+                entity.controller.setaside.append(entity)
+            elif new_zone == Zone.SECRET:
+                entity.controller.secrets.append(entity)
                 
     def _get_or_create_entity(self, entity_id: int, data: dict):
         if entity_id in self.entity_map:

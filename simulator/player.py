@@ -38,6 +38,8 @@ class Player(Entity):
         self.hand: List[Card] = []
         self.board: List[Minion] = []
         self.graveyard: List[Card] = []
+        self.setaside: List[Card] = [] # For Discover options, created cards, etc.
+        self.choices: List[Card] = [] # Subset of setaside specifically for current choices
         self.secrets: List[Card] = []
         
         # Mana

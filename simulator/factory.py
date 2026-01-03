@@ -26,10 +26,7 @@ def create_card(card_id: str, controller: 'Player') -> Card:
              cost=0, 
              card_type=CardType.SPELL, 
              card_class=CardClass.NEUTRAL,
-             rarity=Rarity.COMMON,
-             text="",
-             mechanics=[],
-             requirements=[]
+             rarity=Rarity.COMMON
          )
 
     game = controller.game if controller else None
