@@ -83,7 +83,7 @@ class AssistantWorker(QThread):
         # Find any player with cards (workaround for player ID mapping)
         me = None
         for p in self.game.players:
-            if p.hand:
+            if p.hand or p.board:
                 me = p
                 break
         
@@ -92,48 +92,72 @@ class AssistantWorker(QThread):
             self.status_signal.emit(f"Waiting... (Total cards: {total})")
             return
 
-        # Filter playable cards by mana cost
+        # === PRIORITY 1: Playable Cards ===
         playable = [c for c in me.hand if hasattr(c, 'cost') and c.cost <= me.mana]
         
-        if not playable:
-            # No playable cards, try to suggest an attack instead
-            if me.board:
-                self._suggest_attacks(me)
+        if playable:
+            # DUMMY AI: Pick first playable card
+            card_to_play = playable[0]
+            card_name = card_to_play.data.name if hasattr(card_to_play, 'data') and card_to_play.data else card_to_play.card_id
+            
+            # Check if card needs a target
+            needs_target = False
+            if hasattr(card_to_play, 'data') and card_to_play.data:
+                needs_target = getattr(card_to_play.data, 'targeted', False)
+            
+            self.status_signal.emit(f"Play: {card_name}")
+            
+            if needs_target:
+                hand_size = len(me.hand)
+                card_index = me.hand.index(card_to_play)
+                start_pos = self.geometry.get_hand_card_pos(card_index, hand_size)
+                end_pos = self.geometry.get_hero_pos(is_opponent=True)
+                self.arrow_signal.emit(start_pos, end_pos)
             else:
-                self.status_signal.emit(f"No playable cards (Mana: {me.mana})")
-                self.arrow_signal.emit(None, None)
+                hand_size = len(me.hand)
+                card_index = me.hand.index(card_to_play)
+                card_pos = self.geometry.get_hand_card_pos(card_index, hand_size)
+                self.highlight_signal.emit(card_pos)
             return
-
-        # DUMMY AI: Pick first playable card
-        card_to_play = playable[0]
-        card_name = card_to_play.data.name if hasattr(card_to_play, 'data') and card_to_play.data else card_to_play.card_id
         
-        # Check if card needs a target
-        needs_target = False
-        if hasattr(card_to_play, 'data') and card_to_play.data:
-            # Check for targeting mechanics
-            needs_target = getattr(card_to_play.data, 'targeted', False)
-        
-        self.status_signal.emit(f"Play: {card_name}")
-        
-        if needs_target:
-            # Geometry Calculation for targeted spells/battlecries
-            hand_size = len(me.hand)
-            card_index = me.hand.index(card_to_play)
+        # === PRIORITY 2: Hero Power ===
+        hp = me.hero_power if hasattr(me, 'hero_power') else None
+        if hp:
+            hp_cost = hp.cost if hasattr(hp, 'cost') else 2
+            hp_used = hp.used_this_turn if hasattr(hp, 'used_this_turn') else False
             
-            start_pos = self.geometry.get_hand_card_pos(card_index, hand_size)
-            end_pos = self.geometry.get_hero_pos(is_opponent=True)
+            if me.mana >= hp_cost and not hp_used:
+                hp_name = hp.data.name if hasattr(hp, 'data') and hp.data else "Hero Power"
+                self.status_signal.emit(f"Use: {hp_name}")
+                hp_pos = self.geometry.get_hero_power_pos(is_opponent=False)
+                self.highlight_signal.emit(hp_pos)
+                return
+        
+        # === PRIORITY 2.5: Activate Locations ===
+        from simulator.enums import CardType
+        locations = [c for c in me.board if hasattr(c, 'card_type') and c.card_type == CardType.LOCATION]
+        usable_locations = [loc for loc in locations if hasattr(loc, 'can_use') and loc.can_use()]
+        
+        if usable_locations:
+            loc = usable_locations[0]
+            loc_name = loc.data.name if hasattr(loc, 'data') and loc.data else "Location"
+            self.status_signal.emit(f"Activate: {loc_name}")
             
-            self.arrow_signal.emit(start_pos, end_pos)
+            # Calculate location position
+            loc_index = locations.index(loc)
+            minions_on_board = [c for c in me.board if hasattr(c, 'card_type') and c.card_type != CardType.LOCATION]
+            loc_pos = self.geometry.get_location_pos(loc_index, len(locations), len(minions_on_board))
+            self.highlight_signal.emit(loc_pos)
+            return
+        
+        # === PRIORITY 3: Attack with minions ===
+        if me.board:
+            self._suggest_attacks(me)
         else:
-            # No target needed, show highlight circle on the card
-            hand_size = len(me.hand)
-            card_index = me.hand.index(card_to_play)
-            card_pos = self.geometry.get_hand_card_pos(card_index, hand_size)
-            self.highlight_signal.emit(card_pos)
-        
-        # Also check for attack suggestions
-        self._suggest_attacks(me)
+            self.status_signal.emit(f"No playable cards (Mana: {me.mana})")
+            self.arrow_signal.emit(None, None)
+
+
     
     def _suggest_attacks(self, me):
         """Suggest creature attacks after card plays."""

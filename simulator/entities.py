@@ -436,7 +436,8 @@ class Location(Card):
     
     def can_use(self) -> bool:
         """Check if location can be used."""
-        return self.cooldown == 0-1 and self.durability > 0
+        return self.cooldown == 0 and self.durability > 0
+
     
     def use(self) -> None:
         """Use the location's ability."""

@@ -83,5 +83,21 @@ class HearthstoneGeometry:
         y = self.OPPONENT_HERO_Y_PCT if is_opponent else self.PLAYER_HERO_Y_PCT
         return self._to_pixels(0.5, y)
     
+    def get_hero_power_pos(self, is_opponent: bool = False) -> Point:
+        """Returns position of hero power button (right of hero portrait)."""
+        y = self.OPPONENT_HERO_Y_PCT if is_opponent else self.PLAYER_HERO_Y_PCT
+        # Hero power is to the right of the hero portrait
+        return self._to_pixels(0.58, y)
+    
     def get_turn_button_pos(self) -> Point:
         return self._to_pixels(0.85, 0.46)  # Right side, middle
+    
+    def get_location_pos(self, index: int, total_locations: int, total_minions: int) -> Point:
+        """Returns position of a location on the board.
+        Locations appear to the right of minions on the board.
+        """
+        # Locations are after minions on the board
+        # Calculate position as if it's a minion at index (total_minions + location_index)
+        total_board = total_minions + total_locations
+        effective_index = total_minions + index
+        return self._get_board_pos(effective_index, total_board, self.PLAYER_BOARD_Y_PCT)
