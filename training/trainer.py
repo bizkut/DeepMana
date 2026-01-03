@@ -51,9 +51,11 @@ class Trainer:
         
     def train(self):
         """Main training loop."""
-        print(f"Starting training on {self.device}...")
+        start_iter = self.load_latest_checkpoint()
         
-        for iteration in range(self.num_iterations):
+        print(f"Starting training on {self.device} from iteration {start_iter + 1}...")
+        
+        for iteration in range(start_iter, self.num_iterations):
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")
             
             # 1. Self-Play
@@ -136,8 +138,47 @@ class Trainer:
         """Save model."""
         path = os.path.join("models", filename)
         os.makedirs("models", exist_ok=True)
-        torch.save(self.model.state_dict(), path)
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+        }, path)
         print(f"Saved model to {path}")
+        
+    def load_latest_checkpoint(self) -> int:
+        """Loads the most recent checkpoint and returns the next iteration number."""
+        if not os.path.exists("models"):
+            return 0
+            
+        checkpoints = [f for f in os.listdir("models") if f.startswith("checkpoint_iter_") and f.endswith(".pt")]
+        if not checkpoints:
+            return 0
+            
+        # Sort by iteration number
+        def get_iter(name):
+            try:
+                return int(name.split('_')[-1].replace('.pt', ''))
+            except:
+                return 0
+                
+        checkpoints.sort(key=get_iter)
+        latest_checkpoint = checkpoints[-1]
+        path = os.path.join("models", latest_checkpoint)
+        
+        try:
+            checkpoint = torch.load(path, map_location=self.device)
+            # Support both old (state_dict only) and new (dict with optimizer) formats
+            if 'model_state_dict' in checkpoint:
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            else:
+                self.model.load_state_dict(checkpoint)
+                
+            last_iter = get_iter(latest_checkpoint)
+            print(f"Resumed from {path} (Last completed iteration: {last_iter})")
+            return last_iter
+        except Exception as e:
+            print(f"Failed to load checkpoint {path}: {e}")
+            return 0
 
 if __name__ == "__main__":
     trainer = Trainer()
