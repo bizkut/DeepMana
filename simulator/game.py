@@ -290,7 +290,7 @@ class Game:
         
         # Give second player The Coin (using create_card to Ensure effects are loaded)
         from .factory import create_card
-        coin = create_card("GAME_005", self)
+        coin = create_card("GAME_005", self.players[1])
         self.players[1].add_to_hand(coin)
         
         self.phase = GamePhase.MULLIGAN
