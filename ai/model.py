@@ -19,23 +19,26 @@ class HearthstoneModel(nn.Module):
         
         self.input_dim = input_dim
         self.action_dim = action_dim
-        self.hidden_dim = 256
+        self.hidden_dim = 512  # Increased for Hearthstone complexity
         
-        # Shared Layers
+        # Shared Layers (3 layers for better representation)
         self.fc1 = nn.Linear(input_dim, self.hidden_dim)
         self.fc2 = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.fc3 = nn.Linear(self.hidden_dim, 256)  # Bottleneck before heads
         self.dropout = nn.Dropout(0.1)
         
         # Policy Head (Actor)
-        self.policy_head = nn.Linear(self.hidden_dim, action_dim)
+        self.policy_head = nn.Linear(256, action_dim)
         
         # Value Head (Critic)
-        self.value_head = nn.Linear(self.hidden_dim, 1)
+        self.value_head = nn.Linear(256, 1)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
         
         # Policy: Logits -> Softmax
         policy_logits = self.policy_head(x)

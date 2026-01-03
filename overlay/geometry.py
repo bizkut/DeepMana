@@ -20,7 +20,7 @@ class HearthstoneGeometry:
         # Calibrated for 2560x1440 Hearthstone
         self.HAND_Y_PCT = 0.95          # Cards in hand (very bottom)
         self.PLAYER_BOARD_Y_PCT = 0.52  # Player's minions
-        self.OPPONENT_BOARD_Y_PCT = 0.35 # Opponent's minions
+        self.OPPONENT_BOARD_Y_PCT = 0.42 # Opponent's minions (adjusted)
         self.OPPONENT_HERO_Y_PCT = 0.09  # Opponent hero portrait
         self.PLAYER_HERO_Y_PCT = 0.75    # Player hero portrait
         

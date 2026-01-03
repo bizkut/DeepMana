@@ -1,5 +1,10 @@
 """Geometry Calibration Tool - Displays test points on overlay."""
 import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont
 from PyQt6.QtCore import Qt, QPointF
@@ -68,6 +73,11 @@ class CalibrationOverlay(QMainWindow):
         # === END TURN BUTTON ===
         pos = self.geometry_calc.get_turn_button_pos()
         self._draw_point(painter, pos, blue, "END TURN")
+        
+        # === HERO POWER ===
+        purple = QColor(200, 0, 255, 200)
+        pos = self.geometry_calc.get_hero_power_pos(is_opponent=False)
+        self._draw_point(painter, pos, purple, "HERO PWR")
 
     def _draw_point(self, painter, pos, color, label):
         point = QPointF(float(pos.x), float(pos.y))

@@ -25,16 +25,16 @@ class Trainer:
     def __init__(self, config=None):
         self.config = config or {}
         
-        # Hyperparameters
+        # Hyperparameters - Optimized for RTX 3070 Ti
         self.input_dim = 690
         self.action_dim = 200
-        self.learning_rate = 1e-3
-        self.batch_size = 64
+        self.learning_rate = 1e-4         # More stable for long training
+        self.batch_size = 128             # RTX 3070 Ti can handle this
         self.epochs_per_iter = 5
-        self.num_iterations = 10
-        self.games_per_iter = 5
-        self.mcts_sims = 20
-        self.buffer_capacity = 10000
+        self.num_iterations = 100         # More iterations for better learning
+        self.games_per_iter = 20          # More self-play games per iteration
+        self.mcts_sims = 100              # More MCTS simulations = better decisions
+        self.buffer_capacity = 100000     # Keep more history
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Components
@@ -86,7 +86,7 @@ class Trainer:
         # Usually train on sample of buffer.
         
         # Let's do 100 updates per iteration
-        num_updates = 20
+        num_updates = 100
         
         for _ in range(num_updates):
             states, target_pis, target_vs = self.buffer.sample(self.batch_size)
