@@ -731,9 +731,23 @@ class Game:
         self.fire_event("on_spell_cast", player, card)
         player.spells_played_this_game.append(card.card_id)
         
+        # === TWINSPELL: Add copy back to hand (without twinspell) ===
+        is_twinspell = card.data.twinspell and not getattr(card, '_is_twinspell_copy', False)
+        if is_twinspell and len(player.hand) < 10:
+            from simulator.factory import create_card
+            twin_copy = create_card(card.card_id, self)
+            if twin_copy:
+                twin_copy._is_twinspell_copy = True  # Second cast doesn't twinspell
+                twin_copy.data = twin_copy.data  # Keep same data but mark as copy
+                player.add_to_hand(twin_copy)
+        
         # Move to graveyard
         card.zone = Zone.GRAVEYARD
         player.graveyard.append(card)
+        
+        # === OVERLOAD: Lock mana next turn ===
+        if card.data.overload_value > 0:
+            player.overload_next_turn += card.data.overload_value
         
         # Process deaths
         self.process_deaths()
@@ -890,20 +904,38 @@ class Game:
         
         return actual_damage
     
-    def heal(self, target: Card, amount: int) -> int:
+    def heal(self, target: Card, amount: int, source: Card = None) -> int:
         """Heal a target."""
         if target.dormant > 0:
             return 0
+        
+        # Calculate overheal (amount that would go past full health)
+        current_damage = getattr(target, '_damage', 0) if hasattr(target, '_damage') else 0
+        potential_overheal = max(0, amount - current_damage)
             
         if target.card_type == CardType.HERO and isinstance(target, Hero):
             healed = min(amount, target.damage)
             target._damage -= healed
             if healed > 0 and target.controller:
                 target.controller.healing_taken_this_turn += healed
+            
+            # === OVERHEAL: Trigger if healing past full ===
+            if potential_overheal > 0 and source and source.data.overheal:
+                handler = self._get_effect_handler(source.card_id, "on_overheal")
+                if handler and target.controller:
+                    handler(self, target.controller, source, overheal=potential_overheal)
+            
             return healed
         elif isinstance(target, Card):
             healed = min(amount, target.damage)
             target._damage -= healed
+            
+            # === OVERHEAL: Trigger for minions too ===
+            if potential_overheal > 0 and source and source.data.overheal:
+                handler = self._get_effect_handler(source.card_id, "on_overheal")
+                if handler and target.controller:
+                    handler(self, target.controller, source, overheal=potential_overheal)
+            
             return healed
         return 0
     
@@ -911,6 +943,50 @@ class Game:
         """Mark an entity for destruction."""
         if entity not in self._pending_deaths:
             self._pending_deaths.append(entity)
+    
+    def silence(self, target: Card) -> None:
+        """
+        Silence a minion - removes all card text and enchantments.
+        Resets to base stats, removes keywords and abilities.
+        """
+        if target.card_type != CardType.MINION:
+            return
+        
+        target.silenced = True
+        
+        # Reset keywords to False
+        target._taunt = False
+        target._divine_shield = False
+        target._stealth = False
+        target._poisonous = False
+        target._lifesteal = False
+        target._windfury = False
+        target._reborn = False
+        target._rush = False
+        target._charge = False
+        
+        # Remove frozen/immune states
+        target.frozen = False
+        target.immune = False
+        target.cant_attack = False
+        target.cant_be_targeted = False
+        
+        # Remove any buff/debuff enchantments (reset to base stats)
+        # Note: We keep current damage, but reset attack/health buffs
+        base_attack = target.data.attack
+        base_health = target.data.health
+        current_damage = target._damage
+        
+        target._attack = base_attack
+        target._max_health = base_health
+        target._health = base_health
+        target._damage = min(current_damage, base_health - 1)  # Can't silence to death
+        
+        # Clear all triggers registered by this minion
+        self.unregister_triggers(target)
+        
+        self.fire_event("on_silence", target)
+
     
     def process_deaths(self) -> None:
         """Process all pending deaths."""

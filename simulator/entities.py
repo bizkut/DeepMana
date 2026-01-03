@@ -99,6 +99,27 @@ class CardData:
     drink: bool = False             # Spell with 3 uses (Perils)
     drink_uses: int = 3             # Remaining uses for drink
     
+    # More mechanics
+    twinspell: bool = False         # Cast twice (Rise of Shadows)
+    mega_windfury: bool = False     # Attack 4 times
+    miniaturize: bool = False       # Get 1/1 copy (Whizbang)
+    overheal: bool = False          # Bonus if heal past full (Festival)
+    quickdraw: bool = False         # Draw bonus (Badlands)
+    starship: bool = False          # Starship main (Great Dark Beyond)
+    starship_piece: bool = False    # Starship component
+    lackey: bool = False            # 1-cost battlecry token
+    invoke: bool = False            # Galakrond power (Descent)
+    sidequest: bool = False         # Small quest (Descent)
+    questline: bool = False         # 3-step quest (Stormwind)
+    questline_step: int = 0         # Current step (0-3)
+    overload_value: int = 0         # Overload amount
+    imbue: bool = False             # New mechanic
+    kindred: bool = False           # Type synergy
+    mini: bool = False              # Mini version
+    fabled: bool = False            # Fabled trait
+    rewind: bool = False            # Rewind mechanic
+    temporary: bool = False         # Temporary card
+    
     # Synergy trackers
     elemental_synergy: bool = False  # If played elemental last turn (Ungoro)
     dragon_synergy: bool = False     # If holding a dragon (BRM)
@@ -390,7 +411,13 @@ class Card(Entity):
             return False
         if self.exhausted and not self.charge and not self.rush:
             return False
-        max_attacks = 2 if self.windfury else 1
+        # Calculate max attacks based on windfury variants
+        if self.data.mega_windfury:
+            max_attacks = 4
+        elif self.windfury:
+            max_attacks = 2
+        else:
+            max_attacks = 1
         if self.attacks_this_turn >= max_attacks:
             return False
         return self.attack > 0
