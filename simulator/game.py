@@ -539,6 +539,19 @@ class Game:
                 echo_copy._echo_copy = True  # Mark as echo copy (disappears at end of turn)
                 player.add_to_hand(echo_copy)
         
+        # === CORRUPT: Upgrade cards in hand with lower cost ===
+        if result:
+            played_cost = card.data.cost
+            for hand_card in player.hand:
+                if hand_card.data.corrupt and hand_card.data.corrupted_version:
+                    if played_cost > hand_card.data.cost and not getattr(hand_card, '_corrupted', False):
+                        # Transform into corrupted version
+                        corrupted = create_card(hand_card.data.corrupted_version, self)
+                        if corrupted:
+                            idx = player.hand.index(hand_card)
+                            player.hand[idx] = corrupted
+                            corrupted._corrupted = True
+        
         return result
     
     def _play_minion(
@@ -770,6 +783,13 @@ class Game:
                     handler = self._get_effect_handler(source.card_id, "on_overkill")
                     if handler and source.controller:
                         handler(self, source.controller, source, excess=excess_damage)
+        
+        # === HONORABLE KILL: Trigger when exact lethal damage (no excess) ===
+        if source and source.data.honorable_kill and target.card_type == CardType.MINION:
+            if target.health == 0:  # Exactly lethal
+                handler = self._get_effect_handler(source.card_id, "on_honorable_kill")
+                if handler and source.controller:
+                    handler(self, source.controller, source, target=target)
         
         return actual_damage
     

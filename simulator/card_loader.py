@@ -295,6 +295,15 @@ class CardDatabase:
             start_of_game='START_OF_GAME' in mechanics,
             omega='If you have 10 Mana' in text,
             combo='COMBO' in mechanics or '<b>Combo:</b>' in text,
+            # More expansion mechanics
+            corrupt='CORRUPT' in mechanics or '<b>Corrupt</b>' in text,
+            dredge='DREDGE' in mechanics,
+            honorable_kill='HONORABLE_KILL' in mechanics or '<b>Honorable Kill:</b>' in text,
+            finale='FINALE' in mechanics or '<b>Finale:</b>' in text,
+            enrage='ENRAGED' in mechanics or 'while damaged' in text.lower(),
+            choose_one='CHOOSE_ONE' in mechanics,
+            excavate='EXCAVATE' in mechanics,
+            elusive='CANT_BE_TARGETED_BY_SPELLS' in mechanics or 'can\'t be targeted' in text.lower(),
             # Synergies
             elemental_synergy='If you played an Elemental last turn' in text,
             dragon_synergy='holding a Dragon' in text or 'If you\'re holding a Dragon' in text,

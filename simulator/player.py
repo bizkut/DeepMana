@@ -89,6 +89,7 @@ class Player(Entity):
         self.cthun_attack: int = 6     # C'Thun base stats
         self.cthun_health: int = 6
         self.jade_counter: int = 0     # Current jade golem size
+        self.excavate_progress: int = 0  # Excavate tier (0-3, resets at 4)
         
         # Status
         self.conceded: bool = False
@@ -210,6 +211,29 @@ class Player(Entity):
                 drawn.append(card)
         
         return drawn
+    
+    def dredge(self) -> Optional[Card]:
+        """
+        Dredge: Look at the bottom 3 cards of your deck and put one on top.
+        Simplified: AI picks the highest cost card.
+        """
+        if len(self.deck) == 0:
+            return None
+        
+        # Get bottom 3 cards
+        bottom_count = min(3, len(self.deck))
+        bottom_cards = self.deck[-bottom_count:]
+        
+        # AI strategy: pick the highest cost card (or random for simplicity)
+        import random
+        chosen = max(bottom_cards, key=lambda c: c.data.cost) if bottom_cards else None
+        
+        if chosen:
+            # Remove from current position and put on top
+            self.deck.remove(chosen)
+            self.deck.insert(0, chosen)
+        
+        return chosen
     
     def add_to_hand(self, card: Card) -> bool:
         """Add a card to hand (not from deck)."""
@@ -512,6 +536,22 @@ class Player(Entity):
         """Buff C'Thun wherever it is."""
         self.cthun_attack += attack
         self.cthun_health += health
+    
+    def excavate(self) -> int:
+        """
+        Excavate: Advance excavation tier and get reward based on tier.
+        Tier 1: Common treasure, Tier 2: Rare, Tier 3: Epic, Tier 4: Legendary (resets)
+        Returns the current tier (1-4).
+        """
+        self.excavate_progress += 1
+        current_tier = self.excavate_progress
+        
+        if self.excavate_progress >= 4:
+            self.excavate_progress = 0  # Reset after tier 4
+        
+        # TODO: Give excavate rewards based on tier
+        # For now, just return the tier
+        return current_tier
     
     def __repr__(self) -> str:
         return f"<Player '{self.name}' HP:{self.health} Mana:{self.mana}/{self.mana_crystals}>"

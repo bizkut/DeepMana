@@ -79,6 +79,19 @@ class CardData:
     start_of_game: bool = False     # Effect at game start (Karazhan+)
     omega: bool = False             # Bonus at 10 mana crystals (Boomsday)
     
+    # More expansion mechanics
+    corrupt: bool = False           # Upgrade when higher cost card played (Darkmoon)
+    corrupted_version: str = ""     # Card ID of corrupted version
+    dredge: bool = False            # Look at bottom 3, put 1 on top (Sunken)
+    honorable_kill: bool = False    # Bonus if exact lethal damage (Alterac)
+    finale: bool = False            # Bonus if spends all remaining mana (Festival)
+    enrage: bool = False            # Bonus while damaged (Classic)
+    choose_one: bool = False        # Choose between effects (Druid)
+    choose_options: List[str] = field(default_factory=list)  # IDs of choose options
+    excavate: bool = False          # Excavate counter mechanic (Badlands)
+    elusive: bool = False           # Can't be targeted by spells/powers
+    counter: bool = False           # Card is countered (no effect)
+    
     # Synergy trackers
     elemental_synergy: bool = False  # If played elemental last turn (Ungoro)
     dragon_synergy: bool = False     # If holding a dragon (BRM)
