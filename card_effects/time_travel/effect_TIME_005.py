@@ -11,13 +11,8 @@ def battlecry(game, source, target):
         'TIME_005t4', 'TIME_005t5', 'TIME_005t6', 
         'TIME_005t7', 'TIME_005t8', 'TIME_005t9'
     }
-    print(f"DEBUG: Played count = {len(played)}")
-    print(f"DEBUG: Missing = {others - played}")
     if others.issubset(played):
-        print("DEBUG: EXODIA CONDITION MET!")
         game.deal_damage(player.opponent.hero, 100, source) # Exodia!
-    else:
-        print("DEBUG: EXODIA CONDITION NOT MET.")
 
 def setup(game, source):
     # Register that a Rafaam was played
