@@ -314,6 +314,29 @@ class Game:
         except Exception:
             return None
 
+    def _get_effect_handler(self, card_id: str, handler_name: str) -> Optional[Callable]:
+        """Get a specific effect handler for a card (spellburst, frenzy, etc.)."""
+        try:
+            import importlib
+            
+            folders = ['classic', 'basic', 'naxx', 'gvg', 'tgt', 'wog', 'msg', 
+                      'ungoro', 'kft', 'knc', 'witchwood', 'boomsday', 'rastakhan',
+                      'ros', 'uldum', 'dragons', 'outland', 'scholomance', 'darkmoon',
+                      'barrens', 'stormwind', 'alterac', 'sunken', 'nathria', 'lich',
+                      'titans', 'badlands', 'whizbang', 'great_dark_beyond', 'perils',
+                      'space', 'core', 'time_travel', 'starcraft']
+            
+            for folder in folders:
+                try:
+                    module = importlib.import_module(f"card_effects.{folder}.effect_{card_id}")
+                    if hasattr(module, handler_name):
+                        return getattr(module, handler_name)
+                except ImportError:
+                    continue
+            return None
+        except Exception:
+            return None
+
     @property
     def current_player(self) -> Player:
         """Get the current player."""
@@ -508,6 +531,18 @@ class Game:
         player.minions_played_this_game_list.append(minion.card_id)
         self.fire_event("on_minion_summon", minion)
         
+        # === COLOSSAL: Summon appendages ===
+        if card.data.colossal and card.data.colossal_appendages:
+            for appendage_id in card.data.colossal_appendages:
+                if len(player.board) >= 7:
+                    break
+                from simulator.factory import create_card
+                appendage = create_card(appendage_id, self)
+                if appendage:
+                    app_minion = Minion(appendage.data, self) if not isinstance(appendage, Minion) else appendage
+                    app_minion.controller = player
+                    player.summon(app_minion)
+        
         # === TRIGGER SECRETS AFTER SUMMON ===
         # Check for minion-played secrets (e.g., Mirror Entity, Snipe, Potion of Polymorph)
         self.trigger_secrets("minion_played", player, minion=minion)
@@ -546,6 +581,18 @@ class Game:
         # Trigger spell effect
         if card.card_id in self._battlecry_handlers:
             self._battlecry_handlers[card.card_id](self, card, target)
+        
+        # === SPELLBURST: Trigger friendly minions with Spellburst ===
+        for minion in player.board:
+            if minion.data.spellburst and not minion._spellburst_triggered:
+                handler = self._get_effect_handler(minion.card_id, "on_spellburst")
+                if handler:
+                    handler(self, player, minion, spell=card)
+                minion._spellburst_triggered = True  # One-time trigger
+        
+        # Fire event for Quest advancement
+        self.fire_event("on_spell_cast", player, card)
+        player.spells_played_this_game.append(card.card_id)
         
         # Move to graveyard
         card.zone = Zone.GRAVEYARD
@@ -680,6 +727,14 @@ class Game:
         if source and source.poisonous and target.card_type == CardType.MINION:
             target.destroy()
         
+        # === FRENZY: Trigger once when minion takes damage ===
+        if target.card_type == CardType.MINION and target.data.frenzy and not target._frenzy_triggered:
+            if actual_damage > 0 and target.health > 0:  # Must survive the damage
+                handler = self._get_effect_handler(target.card_id, "on_frenzy")
+                if handler and target.controller:
+                    handler(self, target.controller, target)
+                target._frenzy_triggered = True
+        
         return actual_damage
     
     def heal(self, target: Card, amount: int) -> int:
@@ -740,6 +795,21 @@ class Game:
                     entity.controller.graveyard.append(entity)
                     if entity.card_type == CardType.MINION:
                         entity.controller.dead_minions.append(entity.card_id)
+                        
+                        # === CORPSE: Death Knight gains a corpse ===
+                        entity.controller.corpses += 1
+                        
+                        # === INFUSE: Advance infuse on cards in hand ===
+                        for card in entity.controller.hand:
+                            if card.data.infuse and not card._infused:
+                                card._infuse_progress += 1
+                                if card._infuse_progress >= card.data.infuse_cost:
+                                    card._infused = True
+                                    # Trigger infuse transformation
+                                    handler = self._get_effect_handler(card.card_id, "on_infuse")
+                                    if handler:
+                                        handler(self, entity.controller, card)
+                        
                         self.fire_event("on_minion_death", entity)
     
     def _trigger_battlecry(self, minion: Card, target: Optional[Card]) -> None:

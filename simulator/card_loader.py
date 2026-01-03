@@ -277,6 +277,15 @@ class CardDatabase:
             secret='SECRET' in mechanics,
             discover='DISCOVER' in mechanics,
             outcast='OUTCAST' in mechanics,
+            # New mechanics
+            colossal='COLOSSAL' in mechanics,
+            titan='TITAN' in mechanics,
+            forge='FORGE' in mechanics,
+            infuse='INFUSE' in mechanics,
+            spellburst='SPELLBURST' in mechanics,
+            frenzy='FRENZY' in mechanics,
+            tradeable='TRADEABLE' in mechanics,
+            magnetic='MODULAR' in mechanics,  # Magnetic was called MODULAR
             tags={GameTag.SPELLPOWER.value: getattr(card, 'spell_damage', 0) or 0}
         )
     

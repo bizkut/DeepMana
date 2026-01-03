@@ -52,6 +52,22 @@ class CardData:
     discover: bool = False
     outcast: bool = False
     
+    # New mechanics
+    colossal: bool = False          # Summons appendages
+    colossal_appendages: List[str] = field(default_factory=list)  # IDs of appendage cards
+    titan: bool = False             # Has 3 titan abilities
+    titan_abilities: List[str] = field(default_factory=list)  # IDs of titan abilities
+    forge: bool = False             # Can be forged in hand
+    forged_version: str = ""        # ID of forged card
+    infuse: bool = False            # Upgrades after X friendly minions die
+    infuse_cost: int = 0            # Number of deaths needed
+    spellburst: bool = False        # Trigger once after casting spell
+    frenzy: bool = False            # Trigger once when damaged
+    tradeable: bool = False         # Can swap for card from deck
+    magnetic: bool = False          # Can merge with Mech
+    manathirst: int = 0             # Bonus if you have X+ mana
+    corpse_cost: int = 0            # Corpse cost for Death Knight
+    
     # Extra data
     tags: Dict[int, int] = field(default_factory=dict)
 
@@ -114,7 +130,6 @@ class Card(Entity):
         self.cant_attack: bool = False
         self.cant_be_targeted: bool = False
         
-        # Keyword states (can be silenced)
         self._taunt: bool = data.taunt
         self._divine_shield: bool = data.divine_shield
         self._charge: bool = data.charge
@@ -124,6 +139,12 @@ class Card(Entity):
         self._lifesteal: bool = data.lifesteal
         self._rush: bool = data.rush
         self._reborn: bool = data.reborn
+        
+        # New mechanics states (one-time triggers)
+        self._spellburst_triggered: bool = False  # Has spellburst been used?
+        self._frenzy_triggered: bool = False      # Has frenzy been used?
+        self._infuse_progress: int = 0            # Current infuse count
+        self._infused: bool = False               # Is card infused?
     
     def clone(self) -> 'Card':
         """Create a deep copy of the card."""

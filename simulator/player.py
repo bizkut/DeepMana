@@ -42,6 +42,14 @@ class Player(Entity):
         self.choices: List[Card] = [] # Subset of setaside specifically for current choices
         self.secrets: List[Card] = []
         
+        # Quest System
+        self.quest: Optional[Card] = None  # Active Quest (max 1)
+        self.quest_progress: int = 0       # Progress counter
+        self.quest_goal: int = 0           # Goal to complete quest
+        self.quest_reward_id: str = ""     # Card ID of reward
+        self.sidequests: List[Card] = []   # Sidequests (can have multiple)
+        self.questline_step: int = 0       # For Questlines (0, 1, 2)
+        
         # Mana
         self.mana_crystals: int = 0
         self.mana: int = 0
@@ -71,6 +79,9 @@ class Player(Entity):
         
         # Combo tracker (Rogue)
         self.combo_cards_played: int = 0
+        
+        # Death Knight Corpses
+        self.corpses: int = 0  # Current corpse count
         
         # Status
         self.conceded: bool = False
@@ -402,6 +413,57 @@ class Player(Entity):
             targets = [t for t in targets if t.card_type != CardType.HERO]
         
         return targets
+    
+    # === QUEST SYSTEM ===
+    
+    def play_quest(self, quest_card: Card, goal: int, reward_id: str) -> bool:
+        """Play a quest card."""
+        if self.quest is not None:
+            return False  # Already have a quest
+        
+        self.quest = quest_card
+        self.quest_progress = 0
+        self.quest_goal = goal
+        self.quest_reward_id = reward_id
+        return True
+    
+    def advance_quest(self, amount: int = 1) -> bool:
+        """Advance quest progress. Returns True if quest completed."""
+        if self.quest is None:
+            return False
+        
+        self.quest_progress += amount
+        
+        if self.quest_progress >= self.quest_goal:
+            return self.complete_quest()
+        return False
+    
+    def complete_quest(self) -> bool:
+        """Complete the quest and add reward to hand."""
+        if self.quest is None or not self.quest_reward_id:
+            return False
+        
+        from simulator.factory import create_card
+        
+        reward = create_card(self.quest_reward_id, self._game)
+        if reward:
+            self.add_to_hand(reward)
+        
+        # Move quest to graveyard
+        self.graveyard.append(self.quest)
+        self.quest = None
+        self.quest_progress = 0
+        self.quest_goal = 0
+        self.quest_reward_id = ""
+        
+        return True
+    
+    def play_sidequest(self, sidequest_card: Card) -> bool:
+        """Play a sidequest (can have multiple)."""
+        if len(self.sidequests) >= 3:  # Max 3 sidequests
+            return False
+        self.sidequests.append(sidequest_card)
+        return True
     
     def __repr__(self) -> str:
         return f"<Player '{self.name}' HP:{self.health} Mana:{self.mana}/{self.mana_crystals}>"
