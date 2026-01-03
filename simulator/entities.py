@@ -433,10 +433,16 @@ class Location(Card):
     def __init__(self, data: CardData, game: Optional[Game] = None):
         super().__init__(data, game)
         self.cooldown: int = 0
+        # Durability from card data, default 3
+        self._durability: int = data.durability if hasattr(data, 'durability') and data.durability else 3
+    
+    @property
+    def durability(self) -> int:
+        return self._durability
     
     def can_use(self) -> bool:
         """Check if location can be used."""
-        return self.cooldown == 0 and self.durability > 0
+        return self.cooldown == 0 and self._durability > 0
 
     
     def use(self) -> None:
