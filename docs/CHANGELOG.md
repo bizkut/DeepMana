@@ -1,81 +1,97 @@
 # 📜 Changelog
 
-Toutes les modifications notables du projet HearthstoneOne.
+All notable changes to the HearthstoneOne project.
+
+---
+
+## [2026-01-03] — Dashboard v1.0 & Fixes
+
+### ✨ Added
+- **Dashboard GUI** — Complete training control center with Real-time Stats (Winrate, Loss).
+- **Meta Decks Library** — GUI tab to browse 120+ top-tier decks with "View List" popup.
+- **Deck Decoder** — Integrated logic to decode DeckStrings into readable card lists (Name, Mana, Count).
+- **Stop Button** — Safe training interruption mechanism in `trainer.py`.
+
+### 🔧 Fixed
+- **Nozdormu Crash** — Implemented native `dormant` mechanic to prevent simulated crashes.
+- **Dynamic Cloning** — Fixed `entities.py` to recursively copy custom attributes (preventing future crashes).
+- **Empty Deck List** — Added error handling and visual feedback when decoding decks.
+- **Localization** — Full translation of the Interface and Documentation to **English**.
 
 ---
 
 ## [2026-01-03] — High-Speed Training & Premium Overlay
 
-### ✨ Ajouté
-- **Multiprocessing Support** — `training/data_collector.py` utilise désormais 8 workers parallèles.
-- **Premium Overlay** — Nouveau design Glassmorphism avec néons et animations de pulsation.
-- **Win Probability** — Affichage dynamique des probabilités de victoire (IA Value Head).
-- **TensorBoard** — Suivi en direct des metrics d'entraînement (Loss, Winners, Buffer).
-- **Meta Decks Support** — Intégration de 120+ decks meta (HSGuru Janvier 2026).
-- **Auto-Validator** — `tools/verify_effects.py` pour valider 1800+ scripts d'effets.
-- **Resume System** — Sauvegarde et chargement automatique des checkpoints (poids + optimizer).
+### ✨ Added
+- **Multiprocessing Support** — `training/data_collector.py` now uses 8 parallel workers.
+- **Premium Overlay** — New Glassmorphism design with neon effects and pulsating animations.
+- **Win Probability** — Dynamic display of win probability (AI Value Head).
+- **TensorBoard** — Live tracking of training metrics (Loss, Winners, Buffer).
+- **Meta Decks Support** — Integration of 120+ meta decks (HSGuru January 2026).
+- **Auto-Validator** — `tools/verify_effects.py` to validate 1800+ effect scripts.
+- **Resume System** — Automatic saving and loading of checkpoints (weights + optimizer).
 
-### 🔧 Modifié
-- **`training/data_collector.py`** — Refonte complète pour le parallélisme.
-- **`runtime/live_assistant.py`** — Intégration complète de l'IA AlphaZero pour les suggestions.
-- **`overlay/overlay_window.py`** — Améliorations esthétiques majeures.
-- **Card Fixes** — Correction massive des signatures de triggers (on_turn_end, etc.).
+### 🔧 Changed
+- **`training/data_collector.py`** — Complete refactor for parallelism.
+- **`runtime/live_assistant.py`** — Full AlphaZero AI integration for suggestions.
+- **`overlay/overlay_window.py`** — Major aesthetic improvements.
+- **Card Fixes** — Massive validation of trigger signatures (on_turn_end, etc.).
 
 ---
 
 ## [2026-01-03] — Live Assistant & Overlay (V1)
 
-### 🔧 Modifié
-- **`runtime/log_watcher.py`** — Auto-reconnexion si lancé avant Hearthstone
-- **`runtime/parser.py`** — Parsing robuste avec regex flexibles
-- **`simulator/player.py`** — Ajout de `setaside` et `choices`
-- **`simulator/factory.py`** — Correction assignation contrôleur
+### 🔧 Changed
+- **`runtime/log_watcher.py`** — Auto-reconnection if launched before Hearthstone.
+- **`runtime/parser.py`** — Robust parsing with flexible regex.
+- **`simulator/player.py`** — Added `setaside` and `choices`.
+- **`simulator/factory.py`** — Fixed controller assignment.
 
-### 📚 Documenté
-- `README.md` entièrement réécrit avec diagrammes Mermaid
-- `docs/TASKS.md` mis à jour avec toutes les phases
+### 📚 Documented
+- `README.md` completely rewritten with Mermaid diagrams.
+- `docs/TASKS.md` updated with all phases.
 
 ---
 
 ## [2026-01-02] — Training Pipeline
 
-### ✨ Ajouté
-- **`training/trainer.py`** — Boucle d'entraînement PyTorch
-- **`training/data_collector.py`** — Collecte de trajectoires via self-play
-- **`ai/replay_buffer.py`** — Stockage optimisé des données
+### ✨ Added
+- **`training/trainer.py`** — PyTorch Training Loop.
+- **`training/data_collector.py`** — Trajectory collection via self-play.
+- **`ai/replay_buffer.py`** — Optimized data storage.
 
-### 🧪 Testé
-- Proof of Life : Loss qui descend après quelques itérations
+### 🧪 Tested
+- Proof of Life: Decreasing Loss after a few iterations.
 
 ---
 
 ## [2026-01-01] — Core AI
 
-### ✨ Ajouté
-- **`ai/model.py`** — Réseau Actor-Critic (Policy + Value heads)
-- **`ai/mcts.py`** — Monte Carlo Tree Search avec UCB
-- **`ai/encoder.py`** — Encodage état de jeu en tenseur (690 dimensions)
-- **`evaluation.py`** — Script d'évaluation basique
+### ✨ Added
+- **`ai/model.py`** — Actor-Critic Network (Policy + Value heads).
+- **`ai/mcts.py`** — Monte Carlo Tree Search with UCB.
+- **`ai/encoder.py`** — Game state encoding to tensor (690 dimensions).
+- **`evaluation.py`** — Basic evaluation script.
 
 ---
 
-## [2025-12-31] — Simulateur Universel
+## [2025-12-31] — Universal Simulator
 
-### ✨ Ajouté
-- **`simulator/game.py`** — Moteur de jeu complet
-- **`simulator/player.py`** — Gestion joueur (main, board, deck)
-- **`simulator/entities.py`** — Cartes, Serviteurs, Héros, Pouvoirs
-- **`simulator/card_loader.py`** — Chargement depuis hearthstone_data
-- **`simulator/enums.py`** — Énumérations (Zone, CardType, etc.)
+### ✨ Added
+- **`simulator/game.py`** — Complete Game Engine.
+- **`simulator/player.py`** — Player management (hand, board, deck).
+- **`simulator/entities.py`** — Cards, Minions, Heroes, Powers.
+- **`simulator/card_loader.py`** — Loading from hearthstone_data.
+- **`simulator/enums.py`** — Enumerations (Zone, CardType, etc.).
 
-### 🔧 Modifié
-- Migration complète depuis Fireplace vers simulateur custom
+### 🔧 Changed
+- Complete migration from Fireplace to custom simulator.
 
 ---
 
-## [2025-12-30] — Setup Initial
+## [2025-12-30] — Initial Setup
 
-### ✨ Ajouté
-- Structure du projet
-- `requirements.txt`
-- Architecture de base
+### ✨ Added
+- Project structure.
+- `requirements.txt`.
+- Base architecture.
