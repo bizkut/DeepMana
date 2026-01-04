@@ -1,5 +1,5 @@
 {
-    "workers": 15,
+    "workers": 12,
     "batch_size": 128,
-    "mcts_sims": 60
+    "mcts_sims": 40
 }

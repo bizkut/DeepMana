@@ -45,8 +45,7 @@ def _play_game_worker(model_state, input_dim, action_dim, mcts_sims, game_idx, v
         
         trajectory = []
         step_count = 0
-        max_steps = 150
-        
+        max_steps = 500
         while not env.is_game_over and step_count < max_steps:
             root_game_state = env.game.clone()
             mcts = MCTS(model, encoder, root_game_state, num_simulations=mcts_sims)
@@ -72,6 +71,8 @@ def _play_game_worker(model_state, input_dim, action_dim, mcts_sims, game_idx, v
         winner = 0
         if env.game.winner:
             winner = 1 if env.game.winner == env.game.players[0] else 2
+        elif step_count >= max_steps:
+            if verbose: print(f"Game {game_idx} timed out after {max_steps} steps.")
             
         return trajectory, winner
 

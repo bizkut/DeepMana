@@ -190,47 +190,28 @@ class MCTS:
         # Clone parent game first
         new_game = parent_game.clone()
         
-        # To execute the action, we need to decode the index
-        # We need access to Action class
         from .actions import Action
-        action_obj = Action.from_index(action_idx)
-        
-        # Execute on new_game using wrapper logic
-        # We can reuse HearthstoneGame helper methods if we had them exposed statically
-        # Or instantiate a temporary wrapper
         from .game_wrapper import HearthstoneGame
+        
+        # Instantiate a temporary wrapper
         wrapper = HearthstoneGame()
         wrapper._game = new_game
         
-        # Perform action
-        player = wrapper.current_player
+        # Find the action object matching the index in the current state
+        # This is important because step() needs the _sim_action metadata
+        action_to_exec = None
+        for action in wrapper.get_valid_actions():
+            if action.to_index() == action_idx:
+                action_to_exec = action
+                break
         
-        # Execute based on type
-        # NOTE: logic duplicated from game.py or self_play.py?
-        # Ideally wrapper has `step(action)`
-        
-        try:
-            if action_obj.action_type.name == "END_TURN":
-                new_game.end_turn()
-            elif action_obj.action_type.name == "PLAY_CARD":
-                # Need to map index to hand card
-                # Card indices might shift if hand changes? 
-                # MCTS assumes static snapshot so indices are valid for THIS state.
-                if action_obj.card_index < len(player.hand):
-                    card = player.hand[action_obj.card_index]
-                    target = None
-                    # Resolve target index
-                    if action_obj.target_index is not None:
-                         # 0-7: Minions (offset logic from Action.to_index)
-                         pass # TODO: target resolution
-                    new_game.play_card(card, target) # Simplified
-            elif action_obj.action_type.name == "ATTACK":
-                pass # TODO: attack resolution
-            elif action_obj.action_type.name == "HERO_POWER":
-                new_game.use_hero_power()
-                
-        except Exception:
-            pass # Invalid move in simulation?
+        if action_to_exec:
+            wrapper.step(action_to_exec)
+        else:
+            # Fallback for indices that might have been valid in MCTS expansion 
+            # but are technically slightly invalid or lack metadata
+            action_obj = Action.from_index(action_idx)
+            wrapper.step(action_obj)
             
         return new_game
 

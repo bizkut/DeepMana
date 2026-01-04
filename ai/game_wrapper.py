@@ -44,7 +44,7 @@ class HearthstoneGame:
         self.perspective = perspective
         self._game: Optional[Game] = None
         self._step_count = 0
-        self._max_steps = 200
+        self._max_steps = 500
         CardDatabase.get_instance().load() # Ensure cards are loaded
     
     @property
