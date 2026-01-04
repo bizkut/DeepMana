@@ -15,8 +15,9 @@ class LogWatcher:
         os.path.expandvars(r"%LocalAppData%\Blizzard\Hearthstone\Logs"),
     ]
 
-    def __init__(self, callback: Callable[[str], None]):
+    def __init__(self, callback: Callable[[str], None], skip_history: bool = False):
         self.callback = callback
+        self.skip_history = skip_history
         self.log_path: Optional[str] = None
         self._running = False
         
@@ -66,24 +67,51 @@ class LogWatcher:
         print(f"LogWatcher: Found {self.log_path}")
         self._running = True
         
+        last_size = 0
+        
         try:
             with open(self.log_path, "r", encoding="utf-8") as file:
-                # Go to end of file initially to skip history?
-                # For a coaching bot, we might need the WHOLE history to reconstruct state if started mid-game.
-                # Ideally, we read from the beginning of the CURRENT game?
-                # For now, let's seek end to catch live events.
-                # Read from beginning to reconstruct full game state
-                file.seek(0, 0)
-                
-                while self._running:
-                    line = file.readline()
-                    if not line:
-                        time.sleep(0.1)
-                        continue
+                if self.skip_history:
+                    # Skip to end - only read NEW lines
+                    file.seek(0, 2)  # Seek to end
+                    last_pos = file.tell()
+                    print(f"LogWatcher: Skipping history, starting at position {last_pos}")
+                else:
+                    # Initial full read (for debugging/testing)
+                    while True:
+                        line = file.readline()
+                        if not line: break
+                        self.callback(line)
                     
-                    self.callback(line)
+                    last_pos = file.tell()
+                    print(f"LogWatcher: Caught up to line {last_pos}")
+
+            # Polling loop with reopen (handles file rotation/flush better)
+            while self._running:
+                try:
+                    current_size = os.path.getsize(self.log_path)
+                    if current_size > last_size:
+                        with open(self.log_path, "r", encoding="utf-8") as file:
+                            file.seek(last_pos)
+                            while True:
+                                line = file.readline()
+                                if not line: break
+                                self.callback(line)
+                            last_pos = file.tell()
+                            last_size = current_size
+                    elif current_size < last_size:
+                        # File truncated/rotated
+                        last_pos = 0
+                        last_size = 0
+                    
+                    time.sleep(0.5) # Poll every 500ms
+                except OSError:
+                    time.sleep(1) # Retry if locked
+                    
         except Exception as e:
             print(f"LogWatcher Error: {e}")
+            import traceback
+            traceback.print_exc()
             
     def stop(self):
         self._running = False

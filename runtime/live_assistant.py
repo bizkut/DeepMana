@@ -4,9 +4,13 @@ Watches game logs, analyzes state with AlphaZero, and displays suggestions via o
 """
 
 import sys
+import os
 import time
 import threading
 from typing import Optional
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -29,6 +33,7 @@ class AssistantWorker(QThread):
     mana_signal = pyqtSignal(int, int)  # current, max
     arrow_signal = pyqtSignal(object, object)
     highlight_signal = pyqtSignal(object)
+    action_queue_signal = pyqtSignal(list)  # List of (type, desc, details)
     
     def __init__(self, use_model: bool = True):
         super().__init__()
@@ -47,20 +52,10 @@ class AssistantWorker(QThread):
         self.watcher = LogWatcher(self.handle_log_line)
         
         # AI Brain
-        self.use_model = use_model
+        self.use_model = False  # Disabled - model has fixed input size, real games have variable states
         self.brain = None
-        if use_model:
-            try:
-                from ai.brain import AIBrain
-                self.brain = AIBrain()
-                if self.brain.load_latest_model():
-                    print("[Assistant] AlphaZero model loaded!")
-                else:
-                    print("[Assistant] No trained model found. Using simple heuristics.")
-                    self.brain = None
-            except Exception as e:
-                print(f"[Assistant] Failed to load AI Brain: {e}")
-                self.brain = None
+        # For now, always use heuristics until model architecture supports variable input
+        print("[Assistant] Using heuristic-based suggestions (model disabled for live play)")
         
         # Throttle analysis to avoid spam
         self.last_analysis_time = 0
@@ -76,20 +71,19 @@ class AssistantWorker(QThread):
         self.watcher_thread.start()
         
         # Main loop - periodic refresh
+        refresh_counter = 0
         while self.running:
             time.sleep(0.5)
+            refresh_counter += 1
             
-            # Check if we have a game running
+            # Periodic analysis every ~2 seconds
+            if refresh_counter % 4 == 0:
+                self.think_and_suggest()
+            
+            # Also analyze when game state changes
             if self.parser.in_game:
-                # Throttled analysis
                 if time.time() - self.last_analysis_time > self.analysis_cooldown:
-                    if self.parser.is_local_player_turn():
-                        self.think_and_suggest()
-                    else:
-                        self.status_signal.emit("OPPONENT'S TURN")
-                        self.info_signal.emit("Waiting for opponent...")
-                        self.arrow_signal.emit(None, None)
-                        self._update_mana()
+                    self.think_and_suggest()
 
     def stop(self):
         """Stop the assistant."""
@@ -104,20 +98,37 @@ class AssistantWorker(QThread):
         """Update mana display."""
         local_player = self.parser.get_local_player()
         if local_player:
-            self.mana_signal.emit(local_player.mana, local_player.max_mana)
+            self.mana_signal.emit(local_player.mana, local_player.mana_crystals)
     
     def handle_log_line(self, line: str):
         """Called for every new log line."""
-        self.parser.parse_line(line)
+        state_changed = self.parser.parse_line(line)
+        
+        # Debug: check if lines are coming in
+        # print(f"Log: {line.strip()}") 
+
+        # Force update on specific events if parser missed them
+        if "TAG_CHANGE" in line or "SHOW_ENTITY" in line or "BLOCK_START" in line:
+            if time.time() - self.last_analysis_time > self.analysis_cooldown:
+                self.think_and_suggest()
 
     def think_and_suggest(self):
         """AI Logic - Uses AlphaZero model if available."""
         self.last_analysis_time = time.time()
         
-        if not self.parser.in_game:
-            self.status_signal.emit("STANDBY")
-            self.info_signal.emit("Waiting for game to start...")
-            return
+        # Note: With skip_history=True, in_game might not be set
+        # We'll show suggestions regardless - user can ignore if not in game
+        # if not self.parser.in_game:
+        #     self.status_signal.emit("STANDBY")
+        #     self.info_signal.emit("Waiting for game to start...")
+        #     self.action_queue_signal.emit([])
+        #     return
+        
+        # Skip mulligan check for now - detection is unreliable
+        # TODO: Fix mulligan detection
+        
+        # For now, always show suggestions (user knows when it's their turn)
+        # Turn detection will be improved later
 
         local_player = self.parser.get_local_player()
         if not local_player:
@@ -130,7 +141,7 @@ class AssistantWorker(QThread):
         
         # Get perspective (1 = local player is P1, 2 = local player is P2)
         perspective = 1 if self.parser.local_player_id in [None, 1] else 2
-        state = GameState.from_simulator_game(self.game, perspective=perspective)
+        state = GameState.from_simulator_game(self.game, perspective_player_id=perspective)
         
         # === USE ALPHAZERO MODEL ===
         if self.brain is not None:
@@ -208,65 +219,118 @@ class AssistantWorker(QThread):
                 self.arrow_signal.emit(start_pos, end_pos)
 
     def _suggest_heuristic(self, local_player):
-        """Simple heuristic AI when no model is available."""
-        # Priority 1: Play cards
-        playable = [c for c in local_player.hand if hasattr(c, 'cost') and c.cost <= local_player.mana]
+        """Build a full turn plan using simple heuristics."""
+        actions = []
+        # Trust parsed mana, but fallback if crystals are 0 (parser not ready)
+        current_mana = local_player.mana
+        if local_player.mana_crystals == 0:
+             current_mana = 10 
         
-        if playable:
-            # Play highest cost card first
-            playable.sort(key=lambda c: c.cost, reverse=True)
-            card = playable[0]
-            card_name = getattr(card.data, 'name', 'Card') if hasattr(card, 'data') and card.data else 'Card'
-            
-            self.status_signal.emit(f"PLAY: {card_name}")
-            self.info_signal.emit(f"Cost: {card.cost} | Mana: {local_player.mana}/{local_player.max_mana}")
-            
-            idx = local_player.hand.index(card)
-            card_pos = self.geometry.get_hand_card_pos(idx, len(local_player.hand))
-            self.highlight_signal.emit(card_pos)
-            
-            # Simple winrate based on board state
-            my_board = sum(m.attack for m in local_player.board if hasattr(m, 'attack'))
-            opp_board = sum(m.attack for m in self.game.players[1].board if hasattr(m, 'attack'))
-            winrate = (my_board - opp_board) / 20  # Normalize to -1 to 1
-            winrate = max(-1, min(1, winrate))
-            self.winrate_signal.emit(winrate)
-            return
-            
-        # Priority 2: Attack with minions
-        can_attack = [m for m in local_player.board if hasattr(m, 'can_attack') and m.can_attack()]
+        # DEBUG: Show BOTH players' hands and boards
+        for i, p in enumerate(self.game.players):
+            hand_cards = [(getattr(c.data, 'name', 'Unknown') if hasattr(c, 'data') and c.data else 'Unknown', 
+                           getattr(c, 'cost', '?')) for c in p.hand]
+            board_cards = [(getattr(m.data, 'name', 'Unknown'), getattr(m, 'atk', getattr(m, 'attack', 0)), getattr(m, 'health', 0)) for m in p.board]
+            print(f"[DEBUG] Player {i}: Hand({len(p.hand)})={hand_cards[:3]}... Board({len(p.board)})={board_cards} Mana={p.mana}/{p.mana_crystals}")
         
-        if can_attack:
-            attacker = can_attack[0]
-            attacker_idx = local_player.board.index(attacker)
-            attacker_name = getattr(attacker.data, 'name', 'Minion') if hasattr(attacker, 'data') else 'Minion'
-            
-            # Check for taunts
-            opponent = self.game.players[1]
-            taunts = [m for m in opponent.board if hasattr(m, 'taunt') and m.taunt]
-            
-            if taunts:
-                target = taunts[0]
-                target_idx = opponent.board.index(target)
-                target_name = getattr(target.data, 'name', 'Taunt') if hasattr(target, 'data') else 'Taunt'
+        print(f"[HEURISTIC] Using local_player_id={self.parser.local_player_id}")
+        
+        # Copie de la main pour simulation
+        simulated_hand = list(local_player.hand)
+        
+        
+        # 1. Jouer des cartes (Greedy: les plus chères d'abord)
+        # On filtre les cartes jouables
+        playable_indices = []
+        for i, card in enumerate(simulated_hand):
+            if hasattr(card, 'cost'):
+                playable_indices.append(i)
+        
+        # Tri par coût décroissant
+        playable_indices.sort(key=lambda i: simulated_hand[i].cost, reverse=True)
+        
+        for i in playable_indices:
+            card = simulated_hand[i]
+            if card.cost <= current_mana:
+                card_name = getattr(card.data, 'name', 'Carte') if hasattr(card, 'data') and card.data else 'Carte'
                 
-                self.status_signal.emit(f"ATTACK: {attacker_name} → {target_name}")
-                start_pos = self.geometry.get_player_minion_pos(attacker_idx, len(local_player.board))
-                end_pos = self.geometry.get_opponent_minion_pos(target_idx, len(opponent.board))
-            else:
-                self.status_signal.emit(f"ATTACK: {attacker_name} → FACE")
-                start_pos = self.geometry.get_player_minion_pos(attacker_idx, len(local_player.board))
-                end_pos = self.geometry.get_hero_pos(is_opponent=True)
+                # Ajout à la file
+                actions.append((
+                    "PLAY", 
+                    f"Jouer {card_name}", 
+                    f"Position main: {i+1} | Coût: {card.cost}"
+                ))
                 
-            self.info_signal.emit("Go face when possible!")
-            self.arrow_signal.emit(start_pos, end_pos)
-            return
+                # Simulation de coût
+                current_mana -= card.cost
+                
+                # Highlight la première carte à jouer
+                if len(actions) == 1:
+                     hand_size = len(local_player.hand)
+                     card_pos = self.geometry.get_hand_card_pos(i, hand_size)
+                     self.highlight_signal.emit(card_pos)
+                     self.status_signal.emit(f"JOUER {card_name}")
+
+        # 2. Attaquer avec les serviteurs sur le plateau
+        # Note: on ne prend que ceux DÉJÀ sur le plateau (pas ceux qu'on vient de suggérer de jouer)
+        # Le parser doit être précis sur l'état du board.
+        for i, minion in enumerate(local_player.board):
+            # Vérification basique (exhausted est souvent mis à jour par les logs)
+            can_attack = True
+            if hasattr(minion, 'exhausted') and minion.exhausted:
+                can_attack = False
+            if hasattr(minion, 'frozen') and minion.frozen:
+                can_attack = False
+            if hasattr(minion, 'can_attack') and not minion.can_attack(): # Si méthode dispo
+                can_attack = False
             
-        # Priority 3: End turn
-        self.status_signal.emit("END TURN")
-        self.info_signal.emit("No more actions available")
-        self.arrow_signal.emit(None, None)
-        self.highlight_signal.emit(None)
+            if can_attack:
+                m_name = getattr(minion.data, 'name', 'Serviteur') if hasattr(minion, 'data') else 'Serviteur'
+                
+                # Trouver cible taunt (simulation)
+                target_desc = "Face"
+                opponent = self.game.players[1] if self.parser.local_player_id in [None, 1] else self.game.players[0]
+                taunts = [m for m in opponent.board if hasattr(m, 'taunt') and m.taunt]
+                
+                if taunts:
+                    t_name = getattr(taunts[0].data, 'name', 'Taunt') if hasattr(taunts[0].data, 'data') else 'Taunt'
+                    target_desc = f"{t_name}"
+                
+                actions.append((
+                    "ATTACK",
+                    f"Attaquer avec {m_name}",
+                    f"Cible: {target_desc} (Position {i+1})"
+                ))
+                
+                # Si c'est la première action (pas de cartes jouées avant), on met la flèche
+                if len(actions) == 1:
+                     start_pos = self.geometry.get_player_minion_pos(i, len(local_player.board))
+                     if taunts:
+                         end_pos = self.geometry.get_opponent_minion_pos(0, len(opponent.board)) # Premier taunt
+                     else:
+                         end_pos = self.geometry.get_hero_pos(is_opponent=True)
+                     self.arrow_signal.emit(start_pos, end_pos)
+
+        # 3. Fin de tour
+        actions.append(("END", "Fin du tour", "Passer la main"))
+        if len(actions) == 1: # Seulement fin de tour
+             self.status_signal.emit("FIN DU TOUR")
+             self.arrow_signal.emit(None, None)
+             self.highlight_signal.emit(None)
+
+        # DEBUG: Print found actions
+        print(f"[HEURISTIC] ACTIONS FOUND ({len(actions)}):")
+        for a in actions:
+            print(f"  - {a}")
+
+        # Envoyer la file complète
+        self.action_queue_signal.emit(actions)
+        
+        # Winrate basique
+        my_stats = sum(m.attack + m.health for m in local_player.board if hasattr(m, 'attack'))
+        opp_stats = sum(m.attack + m.health for m in self.game.players[1].board if hasattr(m, 'attack'))
+        base_wr = 0.5 + (my_stats - opp_stats) * 0.02
+        self.winrate_signal.emit(max(0.1, min(0.9, base_wr)))
 
 
 def main():
@@ -297,6 +361,7 @@ def main():
     worker.mana_signal.connect(window.update_mana)
     worker.arrow_signal.connect(window.set_arrow)
     worker.highlight_signal.connect(window.set_highlight)
+    worker.action_queue_signal.connect(window.set_action_queue) # Nouvelle connexion
     
     worker.start()
     

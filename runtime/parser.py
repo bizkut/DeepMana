@@ -25,9 +25,13 @@ class LogParser:
         # Hero Tracking
         self.hero_entities: Dict[int, int] = {}  # player_id -> hero_entity_id
         
+        # Entity tracking for inline tags
+        self.last_entity_id: Optional[int] = None
+        
         # Game Phase
         self.in_game = False
         self.mulligan_complete = False
+        self.current_player_id: Optional[int] = None  # 1 or 2 (whose turn)
         
         # Regex Patterns
         self.regex_tag = re.compile(r"TAG_CHANGE Entity=(.*?) tag=(.*?) value=(.*)")
@@ -35,7 +39,10 @@ class LogParser:
         self.regex_block_start = re.compile(r"BLOCK_START.*BlockType=(\w+).*Entity=\[.*id=(\d+)")
         self.regex_block_end = re.compile(r"BLOCK_END")
         self.regex_player_entity = re.compile(r"PlayerID=(\d+), PlayerName=(.*)")
-        self.regex_show_entity = re.compile(r"SHOW_ENTITY.*\[.*id=(\d+).*cardId=(\S+)")
+        # SHOW_ENTITY has two formats:
+        # 1. Simple: SHOW_ENTITY - Updating Entity=28 CardID=VAC_408
+        # 2. Bracket: SHOW_ENTITY - Updating Entity=[...id=28...] CardID=VAC_408
+        self.regex_show_entity = re.compile(r"SHOW_ENTITY.*Entity=(?:\[.*?id=)?(\d+).*?CardID=(\S+)")
         self.regex_hide_entity = re.compile(r"HIDE_ENTITY.*\[.*id=(\d+)")
         self.regex_attack = re.compile(r"BLOCK_START.*BlockType=ATTACK.*Entity=\[.*id=(\d+).*\].*Target=\[.*id=(\d+)")
         
@@ -82,8 +89,34 @@ class LogParser:
             entity_str = tag_match.group(1)
             tag = tag_match.group(2)
             value = tag_match.group(3)
+            
+
             if self._handle_tag_change(entity_str, tag, value):
                 state_changed = True
+        
+        # === INLINE TAGS (after FULL_ENTITY) ===
+        # These are lines like: "D ... PowerTaskList.DebugPrintPower() -         tag=ZONE value=DECK"
+        # They have "tag=X value=Y" but are NOT TAG_CHANGE lines
+        # Check: has "tag=" AND "value=" but NOT "TAG_CHANGE" and NOT "Entity="
+        if "tag=" in line and "value=" in line and "TAG_CHANGE" not in line and "Entity=" not in line:
+            inline_tag_match = re.search(r'tag=(\w+)\s+value=(\w+)', line)
+            if inline_tag_match and self.last_entity_id:
+                tag = inline_tag_match.group(1)
+                value = inline_tag_match.group(2)
+                
+                if tag == "ZONE":
+                    try:
+                        new_zone = Zone[value]
+                        if self.last_entity_id in self.entity_map:
+                            entity = self.entity_map[self.last_entity_id]
+                            self._move_to_zone(entity, new_zone)
+                            state_changed = True
+                    except KeyError:
+                        pass
+        
+        # Clear last_entity_id when we see a new major line (FULL_ENTITY, TAG_CHANGE, etc)
+        if "TAG_CHANGE" in line or "BLOCK_START" in line or "BLOCK_END" in line:
+            self.last_entity_id = None
         
         # === FULL_ENTITY (Card Creation) ===
         if "FULL_ENTITY" in line:
@@ -95,6 +128,14 @@ class LogParser:
         if show_match:
             entity_id = int(show_match.group(1))
             card_id = show_match.group(2)
+            # Check zone using entity map
+            zone = "Unknown"
+            if entity_id in self.entity_map:
+                ent = self.entity_map[entity_id]
+                if hasattr(ent, 'tags'):
+                    zone = ent.tags.get('ZONE', 'Unknown')
+                
+            print(f"[SHOW_ENTITY] id={entity_id} cardId={card_id} Zone={zone} (in map: {entity_id in self.entity_map})")
             self._handle_show_entity(entity_id, card_id)
             state_changed = True
             
@@ -129,6 +170,7 @@ class LogParser:
         self.hero_entities.clear()
         self.local_player_id = None
         self.mulligan_complete = False
+        self.current_player_id = None
         
         for p in self.game.players:
             p.hand.clear()
@@ -136,9 +178,8 @@ class LogParser:
             p.graveyard.clear()
             p.deck.clear()
             p.mana = 0
-            p.max_mana = 0
+            p.mana_crystals = 0
             p.hero = None
-            p.hero_power = None
             
     def _handle_full_entity(self, line: str) -> bool:
         """Handles FULL_ENTITY lines (card creation)."""
@@ -147,28 +188,37 @@ class LogParser:
             return False
         
         entity_id = entity_data['id']
+        card_id = entity_data.get('cardId', '')
         
-        # Only create if we have a cardId
-        if entity_data.get('cardId'):
-            card_id = entity_data['cardId']
-            
-            # Check if this is a Hero card
-            if 'HERO' in card_id.upper():
-                player_id = entity_data.get('player', 1)
-                self.hero_entities[player_id] = entity_id
-            
+        # Track for inline tags
+        self.last_entity_id = entity_id
+        
+        # Get player/controller
+        player_id = entity_data.get('player', 1)
+        
+        # Check if this is a Hero card
+        if card_id and 'HERO' in card_id.upper():
+            self.hero_entities[player_id] = entity_id
+        
+        # ALWAYS create entity, even without cardId (hidden deck cards)
+        if card_id:
+            # Known card - create real entity
             entity = self._get_or_create_entity(entity_id, entity_data)
-            if entity:
-                # Determine zone from the line if present
-                zone_match = re.search(r'zone=(\w+)', line)
-                if zone_match:
-                    zone_str = zone_match.group(1)
-                    try:
-                        new_zone = Zone[zone_str]
-                        self._move_to_zone(entity, new_zone)
-                        return True
-                    except KeyError:
-                        pass
+        else:
+            # Hidden card (in deck) - create placeholder that will be revealed later
+            entity = self._create_placeholder_entity(entity_id, player_id)
+        
+        if entity:
+            # Determine zone from the line if present
+            zone_match = re.search(r'zone=(\w+)', line, re.IGNORECASE)
+            if zone_match:
+                zone_str = zone_match.group(1).upper()
+                try:
+                    new_zone = Zone[zone_str]
+                    self._move_to_zone(entity, new_zone)
+                    return True
+                except KeyError:
+                    pass
         return False
 
     def _handle_show_entity(self, entity_id: int, card_id: str):
@@ -188,6 +238,14 @@ class LogParser:
         # This can be used to trigger arrow display
         pass  # The overlay handles this through the brain suggestions
         
+    def _recalculate_mana(self, player):
+        """Recalculate current mana based on crystals, usage and temp mana."""
+        used = getattr(player, 'raw_resources_used', 0)
+        # Mana = (Crystals - Used) + Temp
+        # Note: Overload is handled by locked crystals usually, but for display this is main formula
+        current = player.mana_crystals - used + player.temp_mana
+        player.mana = max(0, current)
+
     def _handle_tag_change(self, entity_str: str, tag: str, value: str) -> bool:
         entity_data = self._parse_entity_str(entity_str)
         if not entity_data:
@@ -228,6 +286,40 @@ class LogParser:
                         state_changed = True
                     except ValueError:
                         pass
+
+        # === MANA UPDATES ===
+        elif tag == "RESOURCES": # Max Mana
+            if entity_id != -1:
+                player = self._find_player_by_entity_id(entity_id)
+                if player:
+                    try:
+                        player.mana_crystals = int(value)
+                        self._recalculate_mana(player)
+                        state_changed = True
+                    except ValueError:
+                        pass
+                        
+        elif tag == "RESOURCES_USED": # Spent Mana
+            if entity_id != -1:
+                player = self._find_player_by_entity_id(entity_id)
+                if player:
+                    try:
+                        player.raw_resources_used = int(value)
+                        self._recalculate_mana(player)
+                        state_changed = True
+                    except ValueError:
+                        pass
+        
+        elif tag == "TEMP_RESOURCES": # Coin/Innervate
+             if entity_id != -1:
+                player = self._find_player_by_entity_id(entity_id)
+                if player:
+                    try:
+                         player.temp_mana = int(value) 
+                         self._recalculate_mana(player)
+                         state_changed = True
+                    except:
+                        pass
                         
         elif tag == "ARMOR":
             if entity_id != -1:
@@ -239,41 +331,54 @@ class LogParser:
                     except ValueError:
                         pass
                         
-        # === MANA ===
-        elif tag == "RESOURCES":
-            player_name = entity_data.get('name')
-            try:
-                mana_value = int(value)
-                for p in self.game.players:
-                    if p.name == player_name:
-                        p.max_mana = mana_value
+        # === ATTACK STATE ===
+        elif tag == "EXHAUSTED":
+             if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity:
+                     entity.exhausted = (value == "1")
+                     state_changed = True
+                     
+        elif tag == "NUM_ATTACKS_THIS_TURN":
+             if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity:
+                     try:
+                        entity.num_attacks_this_turn = int(value)
                         state_changed = True
-                        break
-            except ValueError:
-                pass
-                
-        elif tag == "RESOURCES_USED":
-            player_name = entity_data.get('name')
-            try:
-                used = int(value)
-                for p in self.game.players:
-                    if p.name == player_name:
-                        p.mana = p.max_mana - used
-                        state_changed = True
-                        break
-            except ValueError:
-                pass
+                     except ValueError:
+                        pass
                 
         # === CURRENT PLAYER ===
         elif tag == "CURRENT_PLAYER":
             if value == "1":
-                player_name = entity_data.get('name')
-                if player_name:
-                    for idx, p in enumerate(self.game.players):
-                        if p.name == player_name:
-                            self.game.current_player_idx = idx
-                            state_changed = True
-                            break
+                # Entity becoming current player
+                # In HS logs: Entity ID 2 = Player 1, Entity ID 3 = Player 2 typically
+                # Or use 'player' field from entity_data
+                player_num = entity_data.get('player')
+                if player_num:
+                    self.current_player_id = player_num
+                    self.game.current_player_idx = player_num - 1
+                    state_changed = True
+                elif entity_id in [2, 3]:
+                    # Fallback: entity ID 2 = player 1, ID 3 = player 2
+                    self.current_player_id = entity_id - 1
+                    self.game.current_player_idx = entity_id - 2
+                    state_changed = True
+                            
+        # === STEP (Game Phase) ===
+        elif tag == "STEP":
+            # MAIN_READY = Mulligan complete, main game starts
+            if value == "MAIN_READY" or value == "MAIN_ACTION":
+                self.mulligan_complete = True
+                state_changed = True
+            # MAIN_START = Beginning of a turn
+            elif value == "MAIN_START":
+                state_changed = True
+            # FINAL_GAMEOVER = Game ended
+            elif value == "FINAL_GAMEOVER":
+                self.in_game = False
+                state_changed = True
                             
         # === GAME END ===
         elif tag == "PLAYSTATE":
@@ -310,31 +415,39 @@ class LogParser:
         return state_changed
             
     def _parse_entity_str(self, entity_str: str) -> Optional[dict]:
-        """Parses [entityName=... id=X ... cardId=Y player=Z] or plain name."""
-        bracket_match = re.search(r'\[([^\]]+)\]', entity_str)
-        if bracket_match:
-            content = bracket_match.group(1)
-            result = {}
-            
-            id_match = re.search(r'id=(\d+)', content)
-            if id_match: result['id'] = int(id_match.group(1))
-            else: result['id'] = -1
-            
-            cardId_match = re.search(r'cardId=(\S+)', content)
-            if cardId_match: result['cardId'] = cardId_match.group(1)
-            
-            name_match = re.search(r'entityName=([^\s\]]+)', content)
-            if name_match: result['name'] = name_match.group(1)
-            
-            player_match = re.search(r'player=(\d+)', content)
-            if player_match: result['player'] = int(player_match.group(1))
-            
-            zonePos_match = re.search(r'zonePos=(\d+)', content)
-            if zonePos_match: result['zonePos'] = int(zonePos_match.group(1))
-            
+        """Parses entity string. Handles:
+        - Plain ID: '42'
+        - Full entity: '[entityName=... id=X ... cardId=Y player=Z]'
+        - Nested brackets: '[entityName=UNKNOWN ENTITY [cardType=INVALID] id=X ...]'
+        """
+        entity_str = entity_str.strip()
+        result = {'id': -1}
+        
+        # Case 1: Plain numeric ID (e.g., "42")
+        if entity_str.isdigit():
+            result['id'] = int(entity_str)
             return result
         
-        return {'id': -1, 'name': entity_str}
+        # Case 2: Extract ID from anywhere in the string using regex
+        # This handles nested brackets because we search the WHOLE string for id=X
+        id_match = re.search(r'id=(\d+)', entity_str)
+        if id_match:
+            result['id'] = int(id_match.group(1))
+        
+        # Extract other fields from the string
+        cardId_match = re.search(r'cardId=(\S+?)[\s\]]', entity_str)
+        if cardId_match: 
+            result['cardId'] = cardId_match.group(1)
+        
+        player_match = re.search(r'player=(\d+)', entity_str)
+        if player_match: 
+            result['player'] = int(player_match.group(1))
+        
+        zonePos_match = re.search(r'zonePos=(\d+)', entity_str)
+        if zonePos_match: 
+            result['zonePos'] = int(zonePos_match.group(1))
+        
+        return result
 
     def _handle_zone_change(self, entity_id: int, zone_value: str, entity_data: dict) -> bool:
         """Moves card between zones."""
@@ -342,16 +455,79 @@ class LogParser:
             new_zone = Zone[zone_value]
         except KeyError:
             return False
-            
-        entity = self._get_or_create_entity(entity_id, entity_data)
-        if not entity:
-            return False
-            
-        return self._move_to_zone(entity, new_zone)
+        
+        # Check if entity exists in map
+        if entity_id in self.entity_map:
+            entity = self.entity_map[entity_id]
+            return self._move_to_zone(entity, new_zone)
+        else:
+            # Entity not in map - create a placeholder for zone tracking
+            player_id = entity_data.get('player', 1)
+            placeholder = self._create_placeholder_entity(entity_id, player_id)
+            return self._move_to_zone(placeholder, new_zone)
+
+    def _create_placeholder_entity(self, entity_id: int, player_id: int = 1):
+        """Creates a placeholder entity for hidden/unknown cards."""
+        # Already exists? Return it
+        if entity_id in self.entity_map:
+            return self.entity_map[entity_id]
+        
+        controller_idx = player_id - 1 if isinstance(player_id, int) else 0
+        
+        if 0 <= controller_idx < len(self.game.players):
+            controller = self.game.players[controller_idx]
+        else:
+            controller = self.game.players[0]
+        
+        from simulator.enums import CardType
+        
+        class PlaceholderData:
+            def __init__(self):
+                self.cost = 0
+                self.name = "Unknown"
+                self.card_id = "UNKNOWN"
+                self.text = ""
+                self.attack = 0
+                self.health = 1
+        
+        class PlaceholderCard:
+            def __init__(self, ctrl, eid):
+                self.controller = ctrl
+                self.zone = Zone.DECK  # Assume it was in deck
+                self.entity_id = eid
+                self.card_id = "UNKNOWN"
+                self.cost = 0
+                self.data = PlaceholderData()
+                self.card_type = CardType.MINION  # Default
+                self.attack = 0
+                self.health = 1
+                self.max_health = 1
+                self.damage = 0
+                self.taunt = False
+                self.divine_shield = False
+                self.stealth = False
+                self.windfury = False
+                self.poisonous = False
+                self.lifesteal = False
+                self.rush = False
+                self.charge = False
+                self.frozen = False
+                self.exhausted = True
+                self.name = "Unknown Card"
+                self.zone_position = 0
+                
+            def can_attack(self):
+                return False
+        
+        placeholder = PlaceholderCard(controller, entity_id)
+        self.entity_map[entity_id] = placeholder
+        return placeholder
 
     def _move_to_zone(self, entity, new_zone: Zone) -> bool:
         """Move entity to a new zone."""
-        if not hasattr(entity, 'zone') or not hasattr(entity, 'controller'):
+        if not hasattr(entity, 'zone'):
+            return False
+        if not hasattr(entity, 'controller'):
             return False
             
         old_zone = entity.zone
@@ -359,6 +535,8 @@ class LogParser:
             return False
             
         controller = entity.controller
+        if not controller:
+            return False
         
         # Remove from old zone
         if old_zone == Zone.HAND and entity in controller.hand:
@@ -406,37 +584,69 @@ class LogParser:
         if entity_id in self.entity_map:
             return self.entity_map[entity_id]
             
+        # Try to create if cardId is present
         if data.get('cardId'):
             card_id = data['cardId']
             controller_idx = data.get('player', 1) - 1
+            
+            # Safe controller access
             if 0 <= controller_idx < len(self.game.players):
                 controller = self.game.players[controller_idx]
             else:
                 controller = self.game.players[0]
             
+            from simulator.factory import create_card
             new_entity = create_card(card_id, controller)
+            
             if new_entity:
                 new_entity.entity_id = entity_id
-                
                 if 'zonePos' in data:
                     new_entity.zone_position = data['zonePos']
                 
                 self.entity_map[entity_id] = new_entity
                 return new_entity
-            
+
+        return None
+
+    def _find_player_by_entity_id(self, entity_id: int):
+        """Finds player object by their Hero entity ID or direct ID."""
+        # Check hero entities
+        for player_idx, hero_id in self.hero_entities.items():
+            if hero_id == entity_id:
+                return self.game.players[player_idx]
+        
+        # If we can't find by ID, try looking up the entity in map and checking controller
+        if entity_id in self.entity_map:
+            ent = self.entity_map[entity_id]
+            if hasattr(ent, 'controller'):
+                 # If entity is the PLAYER object itself
+                 if ent.__class__.__name__ == 'Player':
+                     return ent
+                 # If entity is a HERO, return its controller
+                 if ent.__class__.__name__ == 'Hero':
+                     return ent.controller
+        
         return None
     
     def is_local_player_turn(self) -> bool:
         """Check if it's the local player's turn."""
-        if self.local_player_id is None:
-            return self.game.current_player_idx == 0
-        return self.game.current_player_idx == self.local_player_id - 1
+        if self.local_player_id is None or self.current_player_id is None:
+            return False
+        return self.local_player_id == self.current_player_id
     
     def get_local_player(self) -> Optional[Player]:
         """Get the local player object."""
-        if self.local_player_id is None:
-            return self.game.players[0] if self.game.players else None
-        idx = self.local_player_id - 1
-        if 0 <= idx < len(self.game.players):
-            return self.game.players[idx]
-        return None
+        if self.local_player_id is not None:
+            idx = self.local_player_id - 1
+            if 0 <= idx < len(self.game.players):
+                return self.game.players[idx]
+        
+        # Fallback: find player with named cards (your cards have visible cardIds)
+        for p in self.game.players:
+            for card in p.hand:
+                if hasattr(card, 'data') and card.data and hasattr(card.data, 'name'):
+                    if card.data.name != "Unknown":
+                        return p
+        
+        # Default to player 0
+        return self.game.players[0] if self.game.players else None

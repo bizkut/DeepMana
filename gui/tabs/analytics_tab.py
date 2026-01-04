@@ -96,11 +96,12 @@ class AnalyticsTab(QWidget):
                         self.loss_history.append(entry.get("avg_loss", 0.0))
                         
                         winners = entry.get("winners", {})
-                        total = sum(winners.values())
-                        wr = (winners.get("2", 0) / total * 100) if total > 0 else 0
-                        # Try int key if str fails
-                        if total == 0:
-                            wr = (winners.get(2, 0) / sum(winners.values()) * 100) if sum(winners.values()) > 0 else 0
+                        # Handle both string and int keys
+                        w0 = winners.get("0", winners.get(0, 0))
+                        w1 = winners.get("1", winners.get(1, 0))
+                        w2 = winners.get("2", winners.get(2, 0))
+                        total = w0 + w1 + w2
+                        wr = (w1 / total * 100) if total > 0 else 50
                             
                         self.wr_history.append(wr)
                         self.buffer_history.append(entry.get("buffer_size", 0))
@@ -122,14 +123,17 @@ class AnalyticsTab(QWidget):
         loss = stats.get("avg_loss", 0.0)
         buffer_size = stats.get("buffer_size", 0)
         
-        # Calculate winrate for P2
-        total_games = sum(winners.values())
-        wr_p2 = (winners.get(2, 0) / total_games * 100) if total_games > 0 else 0
+        # Calculate winrate (handle both string and int keys)
+        w0 = winners.get("0", winners.get(0, 0))
+        w1 = winners.get("1", winners.get(1, 0))
+        w2 = winners.get("2", winners.get(2, 0))
+        total_games = w0 + w1 + w2
+        wr_p1 = (w1 / total_games * 100) if total_games > 0 else 50
         
         # Store Data
         self.iterations.append(iteration)
         self.loss_history.append(loss)
-        self.wr_history.append(wr_p2)
+        self.wr_history.append(wr_p1)
         self.buffer_history.append(buffer_size)
         
         # Update Curves

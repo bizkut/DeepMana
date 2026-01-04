@@ -127,6 +127,8 @@ class MainWindow(QMainWindow):
 
     def update_stats(self, stats):
         self.training_page.update_data(stats)
+        if hasattr(self, 'analytics_page'):
+            self.analytics_page.update_data(stats)
 
     def start_training(self):
         self.status_label.setText("● TRAINING ACTIVE")

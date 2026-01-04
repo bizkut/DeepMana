@@ -12,6 +12,21 @@ All notable changes to the HearthstoneOne project.
 
 ---
 
+## [2026-01-04] — Log Parsing V2 & Live Assistant Stability
+
+### 🔧 Changed
+- **Mana Tracking** — Implemented robust `RESOURCES`, `RESOURCES_USED`, and `TEMP_RESOURCES` tag parsing to accurately calculate current mana in real-time.
+- **Attack State Synchronization** — Added `EXHAUSTED` and `NUM_ATTACKS_THIS_TURN` handling to instantly remove attack suggestions after an attack is performed.
+- **Log Watcher** — Improved history skipping logic to ensure correct game state initialization on startup.
+- **Card Detection** — Refined `SHOW_ENTITY` regex to handle bracketed entity formats, ensuring all revealed cards are correctly identified.
+
+### 🧪 Fixed
+- **"Mana 0/0" Bug** — Fixed an issue where the assistant displayed 0 mana due to missing tag usage logic.
+- **State Desync** — Fixed an issue where attack arrows persisted after the action was taken.
+
+
+---
+
 ## [2026-01-04] — Simulator Mechanics V1.1 (Tradeable, Forge, Magnetic)
 
 ### ✨ Added

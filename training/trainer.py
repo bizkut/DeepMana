@@ -72,8 +72,12 @@ class Trainer:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.stop_flag = False
         
-        # TensorBoard
-        self.writer = SummaryWriter(log_dir="runs/hearthstone_training")
+        # TensorBoard - Create timestamped run directory
+        from datetime import datetime
+        run_name = datetime.now().strftime("%Y-%m-%d_%Hh%M")
+        self.run_dir = f"runs/{run_name}"
+        self.writer = SummaryWriter(log_dir=self.run_dir)
+        print(f"TensorBoard: tensorboard --logdir={self.run_dir}")
         
         if torch.cuda.is_available():
             print(f"[OK] CUDA Detected: {torch.cuda.get_device_name(0)}")

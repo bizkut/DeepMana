@@ -14,6 +14,7 @@ from ai.model import HearthstoneModel
 from ai.encoder import FeatureEncoder
 from ai.actions import Action, ActionType
 from ai.game_wrapper import HearthstoneGame
+from ai.game_state import GameState
 
 
 class AIBrain:
@@ -26,7 +27,7 @@ class AIBrain:
         action, confidence = brain.suggest_action(game_state)
     """
     
-    def __init__(self, input_dim: int = 690, action_dim: int = 200, use_gpu: bool = True):
+    def __init__(self, input_dim: int = 870, action_dim: int = 300, use_gpu: bool = True):
         self.input_dim = input_dim
         self.action_dim = action_dim
         self.device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
@@ -46,8 +47,12 @@ class AIBrain:
             return False
             
         try:
-            state_dict = torch.load(path, map_location=self.device)
-            self.model.load_state_dict(state_dict)
+            checkpoint = torch.load(path, map_location=self.device)
+            # Handle both full checkpoint (dict) and direct state_dict
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                self.model.load_state_dict(checkpoint)
             self.model.eval()
             self.model_loaded = True
             self.model_path = path
