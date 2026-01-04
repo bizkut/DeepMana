@@ -172,11 +172,14 @@ class MCTS:
         # Create children
         for idx in valid_indices:
              if idx not in node.children:
-                 # Lazy state creation: Pass None, create on traversal
-                 # But we need to keep the PARENT alive to clone from
-                 child = MCTSNode(state=None, parent=node, action_idx=idx)
-                 child.prior_prob = policy_probs[0][idx].item()
-                 node.children[idx] = child
+                 # Safety check: ensure index is within model bounds
+                 if idx < policy_probs.size(1):
+                     child = MCTSNode(state=None, parent=node, action_idx=idx)
+                     child.prior_prob = policy_probs[0][idx].item()
+                     node.children[idx] = child
+                 else:
+                     # Log warning or skip if model is stale
+                     pass
         
         return value
 

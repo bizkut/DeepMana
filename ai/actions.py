@@ -184,15 +184,15 @@ class Action:
             return base + attacker_offset + target_offset
             
         elif self.action_type == ActionType.CHOOSE:
-            base = 175
+            base = 275
             return base + (self.choice_index or 0)
             
         elif self.action_type == ActionType.TRADE:
-            base = 180
+            base = 280
             return base + (self.card_index or 0)
             
         elif self.action_type == ActionType.FORGE:
-            base = 190
+            base = 290
             return base + (self.card_index or 0)
         
         return 0
