@@ -1,13 +1,18 @@
+"""
+DeepMana AI Overlay - Premium Hearthstone Assistant Display.
+A transparent, always-on-top window that shows AI suggestions during gameplay.
+"""
+
 import sys
 import math
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QFrame
-from PyQt6.QtGui import QFont, QColor, QPalette, QPainter, QPen, QPolygonF, QLinearGradient, QRadialGradient, QBrush
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QGraphicsDropShadowEffect
+from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient, QRadialGradient, QFontDatabase
 from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF
 
 class OverlayWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("HearthstoneOne AI Overlay")
+        self.setWindowTitle("DeepMana AI Overlay")
         
         # === ANIMATION STATE ===
         self.anim_tick = 0
@@ -19,6 +24,7 @@ class OverlayWindow(QMainWindow):
         self.arrow_start = None
         self.arrow_end = None
         self.highlight_pos = None
+        self.action_history = []  # Last 3 suggestions
         
         # === WINDOW CONFIG ===
         self.setWindowFlags(
@@ -36,62 +42,137 @@ class OverlayWindow(QMainWindow):
         else:
             self.setGeometry(0, 0, 1920, 1080)
 
-        # === UI LAYOUT (Glassmorphism) ===
+        # === UI LAYOUT ===
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.main_layout.setContentsMargins(30, 30, 30, 30)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(10)
         
-        # Container for labels to create glass effect
+        # === MAIN PANEL (Glassmorphism) ===
         self.panel = QFrame()
-        self.panel.setFixedWidth(400)
+        self.panel.setFixedWidth(380)
         self.panel.setStyleSheet("""
             QFrame {
-                background-color: rgba(15, 23, 42, 180);
-                border: 1px solid rgba(255, 255, 255, 30);
-                border-radius: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(15, 23, 42, 220),
+                    stop:1 rgba(30, 41, 59, 200));
+                border: 1px solid rgba(56, 189, 248, 60);
+                border-radius: 16px;
             }
         """)
         panel_layout = QVBoxLayout(self.panel)
-        panel_layout.setContentsMargins(20, 20, 20, 20)
+        panel_layout.setContentsMargins(20, 16, 20, 16)
+        panel_layout.setSpacing(8)
+
+        # Header Row
+        header_row = QHBoxLayout()
         
         # AI Status Title
-        self.title_label = QLabel("ANTIGRAVITY AI")
-        self.title_label.setFont(QFont("Outfit", 12, QFont.Weight.Bold))
-        self.title_label.setStyleSheet("color: rgba(148, 163, 184, 1.0); background: transparent; border: none;")
+        self.title_label = QLabel("⚡ DEEPMANA AI")
+        self.title_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        self.title_label.setStyleSheet("color: #38bdf8; background: transparent; border: none; letter-spacing: 1px;")
+        header_row.addWidget(self.title_label)
+        header_row.addStretch()
+        
+        # Status Indicator
+        self.status_dot = QLabel("●")
+        self.status_dot.setStyleSheet("color: #4ade80; font-size: 12px; background: transparent; border: none;")
+        header_row.addWidget(self.status_dot)
+        
+        self.status_text = QLabel("ACTIVE")
+        self.status_text.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.status_text.setStyleSheet("color: #4ade80; background: transparent; border: none;")
+        header_row.addWidget(self.status_text)
+        
+        panel_layout.addLayout(header_row)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background: rgba(148, 163, 184, 30); border: none;")
+        panel_layout.addWidget(sep)
         
         # Main Suggestion Label
-        self.status_label = QLabel("ANALYZING...")
-        self.status_label.setFont(QFont("Outfit", 20, QFont.Weight.Black))
-        self.status_label.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
+        self.suggestion_label = QLabel("ANALYZING...")
+        self.suggestion_label.setFont(QFont("Segoe UI", 18, QFont.Weight.Black))
+        self.suggestion_label.setStyleSheet("color: #ffffff; background: transparent; border: none;")
+        self.suggestion_label.setWordWrap(True)
+        panel_layout.addWidget(self.suggestion_label)
         
-        # Detail / Confidence Label
+        # Detail Label
         self.info_label = QLabel("Waiting for game state...")
-        self.info_label.setFont(QFont("Inter", 13))
-        self.info_label.setStyleSheet("color: #cbd5e1; background: transparent; border: none;")
+        self.info_label.setFont(QFont("Segoe UI", 11))
+        self.info_label.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
+        self.info_label.setWordWrap(True)
+        panel_layout.addWidget(self.info_label)
         
         # Winrate Section
-        self.winrate_container = QWidget()
-        self.winrate_container.setStyleSheet("background: transparent; border: none;")
-        winrate_layout = QVBoxLayout(self.winrate_container)
-        winrate_layout.setContentsMargins(0, 5, 0, 0)
-        winrate_layout.setSpacing(5)
+        winrate_container = QWidget()
+        winrate_container.setStyleSheet("background: transparent; border: none;")
+        winrate_layout = QVBoxLayout(winrate_container)
+        winrate_layout.setContentsMargins(0, 8, 0, 0)
+        winrate_layout.setSpacing(6)
         
-        self.winrate_text = QLabel("WIN CHANCE: 50%")
-        self.winrate_text.setFont(QFont("Outfit", 11, QFont.Weight.Bold))
-        self.winrate_text.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
+        # Winrate Header
+        wr_header = QHBoxLayout()
+        self.winrate_label = QLabel("WIN PROBABILITY")
+        self.winrate_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.winrate_label.setStyleSheet("color: #64748b; background: transparent; border: none; letter-spacing: 0.5px;")
+        wr_header.addWidget(self.winrate_label)
+        wr_header.addStretch()
         
-        # Progress Bar (Custom drawn)
-        self.win_prob = 0.5  # 0.0 to 1.0
+        self.winrate_value = QLabel("50%")
+        self.winrate_value.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        self.winrate_value.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
+        wr_header.addWidget(self.winrate_value)
         
-        winrate_layout.addWidget(self.winrate_text)
+        winrate_layout.addLayout(wr_header)
         
-        panel_layout.addWidget(self.title_label)
-        panel_layout.addWidget(self.status_label)
-        panel_layout.addWidget(self.info_label)
-        panel_layout.addWidget(self.winrate_container)
+        # Progress Bar Container (drawn in paintEvent)
+        self.win_prob = 0.5
+        self.winrate_bar = QWidget()
+        self.winrate_bar.setFixedHeight(8)
+        self.winrate_bar.setStyleSheet("background: transparent; border: none;")
+        winrate_layout.addWidget(self.winrate_bar)
+        
+        panel_layout.addWidget(winrate_container)
+        
+        # Separator
+        sep2 = QFrame()
+        sep2.setFixedHeight(1)
+        sep2.setStyleSheet("background: rgba(148, 163, 184, 30); border: none;")
+        panel_layout.addWidget(sep2)
+        
+        # Action History
+        history_label = QLabel("RECENT SUGGESTIONS")
+        history_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        history_label.setStyleSheet("color: #64748b; background: transparent; border: none; letter-spacing: 0.5px;")
+        panel_layout.addWidget(history_label)
+        
+        self.history_container = QVBoxLayout()
+        self.history_container.setSpacing(4)
+        for _ in range(3):
+            h_label = QLabel("—")
+            h_label.setFont(QFont("Segoe UI", 10))
+            h_label.setStyleSheet("color: #475569; background: transparent; border: none;")
+            self.history_container.addWidget(h_label)
+        panel_layout.addLayout(self.history_container)
+        
+        # Mana Display
+        mana_row = QHBoxLayout()
+        self.mana_label = QLabel("⬡ MANA")
+        self.mana_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.mana_label.setStyleSheet("color: #64748b; background: transparent; border: none;")
+        mana_row.addWidget(self.mana_label)
+        mana_row.addStretch()
+        
+        self.mana_value = QLabel("0/0")
+        self.mana_value.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.mana_value.setStyleSheet("color: #3b82f6; background: transparent; border: none;")
+        mana_row.addWidget(self.mana_value)
+        panel_layout.addLayout(mana_row)
         
         self.main_layout.addWidget(self.panel)
 
@@ -102,31 +183,59 @@ class OverlayWindow(QMainWindow):
 
     def update_winrate(self, value):
         """Update winrate percentage (expects value -1 to 1)."""
-        # Convert -1..1 to 0..1
         self.win_prob = (value + 1) / 2
         pct = int(self.win_prob * 100)
-        self.winrate_text.setText(f"WIN CHANCE: {pct}%")
+        self.winrate_value.setText(f"{pct}%")
         
-        # Update text color based on winrate
         if pct > 60:
-            self.winrate_text.setStyleSheet("color: #4ade80;") # Greenish
+            self.winrate_value.setStyleSheet("color: #4ade80; background: transparent; border: none;")
         elif pct < 40:
-            self.winrate_text.setStyleSheet("color: #f87171;") # Reddish
+            self.winrate_value.setStyleSheet("color: #f87171; background: transparent; border: none;")
         else:
-            self.winrate_text.setStyleSheet("color: #94a3b8;") # Neutral
+            self.winrate_value.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
             
     def update_status(self, text):
-        """Update the main suggestion text with a color check."""
-        self.status_label.setText(text.upper())
+        """Update the main suggestion text."""
+        self.suggestion_label.setText(text.upper())
+        
+        # Add to history
+        self.action_history.insert(0, text)
+        if len(self.action_history) > 3:
+            self.action_history.pop()
+        
+        # Update history labels
+        for i, label in enumerate(self._get_history_labels()):
+            if i < len(self.action_history):
+                label.setText(f"→ {self.action_history[i]}")
+                label.setStyleSheet("color: #64748b; background: transparent; border: none;")
+            else:
+                label.setText("—")
+                label.setStyleSheet("color: #475569; background: transparent; border: none;")
+        
+        # Color based on action type
         if "PLAY" in text.upper():
-            self.status_label.setStyleSheet("color: #4ade80; background: transparent; border: none;") # Green
+            self.suggestion_label.setStyleSheet("color: #4ade80; background: transparent; border: none;")
         elif "ATTACK" in text.upper():
-            self.status_label.setStyleSheet("color: #f87171; background: transparent; border: none;") # Red
+            self.suggestion_label.setStyleSheet("color: #f87171; background: transparent; border: none;")
+        elif "END TURN" in text.upper():
+            self.suggestion_label.setStyleSheet("color: #fbbf24; background: transparent; border: none;")
         else:
-            self.status_label.setStyleSheet("color: #38bdf8; background: transparent; border: none;") # Blue
+            self.suggestion_label.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
+
+    def _get_history_labels(self):
+        """Get the 3 history labels from the layout."""
+        labels = []
+        for i in range(self.history_container.count()):
+            item = self.history_container.itemAt(i)
+            if item and item.widget():
+                labels.append(item.widget())
+        return labels
 
     def update_info(self, text):
         self.info_label.setText(text)
+        
+    def update_mana(self, current, maximum):
+        self.mana_value.setText(f"{current}/{maximum}")
         
     def set_arrow(self, start, end):
         self.arrow_start = start
@@ -144,82 +253,85 @@ class OverlayWindow(QMainWindow):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # --- DRAW WINRATE BAR IN PANEL ---
-        # Position the bar relative to the panel
-        # (Approximate positions since it's a layout, but we can draw over it)
-        bar_width = 360
-        bar_height = 4
-        bar_x = 50
-        bar_y = 195 # Adjusted to be below the winrate text in the panel
+        # --- DRAW WINRATE BAR ---
+        bar_width = 340
+        bar_height = 8
+        bar_x = 40
+        bar_y = 228
         
-        # Background bar
+        # Background
         painter.setBrush(QColor(30, 41, 59, 255))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(QRectF(bar_x, bar_y, bar_width, bar_height), 2, 2)
+        painter.drawRoundedRect(QRectF(bar_x, bar_y, bar_width, bar_height), 4, 4)
         
-        # Foreground bar (win probability)
-        painter.setBrush(QColor(56, 189, 248, 255))
-        painter.drawRoundedRect(QRectF(bar_x, bar_y, bar_width * self.win_prob, bar_height), 2, 2)
+        # Gradient fill based on winrate
+        fill_width = bar_width * self.win_prob
+        if self.win_prob > 0.6:
+            grad = QLinearGradient(bar_x, 0, bar_x + fill_width, 0)
+            grad.setColorAt(0, QColor(74, 222, 128))
+            grad.setColorAt(1, QColor(34, 197, 94))
+        elif self.win_prob < 0.4:
+            grad = QLinearGradient(bar_x, 0, bar_x + fill_width, 0)
+            grad.setColorAt(0, QColor(248, 113, 113))
+            grad.setColorAt(1, QColor(239, 68, 68))
+        else:
+            grad = QLinearGradient(bar_x, 0, bar_x + fill_width, 0)
+            grad.setColorAt(0, QColor(56, 189, 248))
+            grad.setColorAt(1, QColor(14, 165, 233))
+        
+        painter.setBrush(QBrush(grad))
+        painter.drawRoundedRect(QRectF(bar_x, bar_y, fill_width, bar_height), 4, 4)
 
         # --- DRAW GAME ELEMENTS ---
-        # Pulse factor (0.0 to 1.0)
         pulse = (math.sin(self.anim_tick * 0.1) + 1) / 2
         
         if self.arrow_start and self.arrow_end:
             start_pt = QPointF(float(self.arrow_start.x), float(self.arrow_start.y))
             end_pt = QPointF(float(self.arrow_end.x), float(self.arrow_end.y))
             
-            # --- DRAW GLOWING LINE ---
             # Outer glow
-            glow_pen = QPen(QColor(56, 189, 248, 50 + int(30 * pulse)), 12)
+            glow_pen = QPen(QColor(248, 113, 113, 60 + int(40 * pulse)), 16)
             glow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(glow_pen)
             painter.drawLine(start_pt, end_pt)
             
             # Main line
-            line_pen = QPen(QColor(56, 189, 248, 220), 5)
+            line_pen = QPen(QColor(248, 113, 113, 255), 4)
             line_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(line_pen)
             painter.drawLine(start_pt, end_pt)
             
-            # --- DRAW TARGET CIRCLE ---
-            radius = 25 + (5 * pulse)
+            # Target circle
+            radius = 30 + (8 * pulse)
             grad = QRadialGradient(end_pt, radius)
-            grad.setColorAt(0, QColor(56, 189, 248, 150))
-            grad.setColorAt(1, QColor(56, 189, 248, 0))
+            grad.setColorAt(0, QColor(248, 113, 113, 180))
+            grad.setColorAt(1, QColor(248, 113, 113, 0))
             painter.setBrush(QBrush(grad))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(end_pt, radius, radius)
             
-            # White core
-            painter.setBrush(QColor(255, 255, 255, 200))
-            painter.drawEllipse(end_pt, 4, 4)
+            # Core dot
+            painter.setBrush(QColor(255, 255, 255, 220))
+            painter.drawEllipse(end_pt, 5, 5)
         
         elif self.highlight_pos:
             pos = QPointF(float(self.highlight_pos.x), float(self.highlight_pos.y))
             
-            # --- DRAW RADIATING RING ---
-            radius = 40 + (10 * pulse)
+            # Radiating ring
+            radius = 45 + (12 * pulse)
             
-            # Outer ring
-            ring_pen = QPen(QColor(74, 222, 128, 200), 3)
+            ring_pen = QPen(QColor(74, 222, 128, 220), 4)
             painter.setPen(ring_pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(pos, radius, radius)
             
-            # Inner fill
+            # Inner glow
             fill_grad = QRadialGradient(pos, radius)
-            fill_grad.setColorAt(0, QColor(74, 222, 128, 60))
+            fill_grad.setColorAt(0, QColor(74, 222, 128, 80))
             fill_grad.setColorAt(1, QColor(74, 222, 128, 0))
             painter.setBrush(QBrush(fill_grad))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(pos, radius, radius)
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = OverlayWindow()
-    window.show()
-    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
