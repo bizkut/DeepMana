@@ -74,6 +74,8 @@ class Game:
         
         # Discover system
         self.pending_choices: Optional[Dict[str, Any]] = None
+        
+        self.summon_counter: int = 0
 
     def clone(self) -> 'Game':
         """Create a deep copy of the game state for MCTS."""
@@ -1320,8 +1322,8 @@ class Game:
             if not self._pending_deaths:
                 break
             
-            # Process deaths in order
-            deaths = self._pending_deaths[:]
+            # Process deaths in order of summon (Hearthstone rule)
+            deaths = sorted(self._pending_deaths, key=lambda x: getattr(x, 'summon_timestamp', 0))
             self._pending_deaths.clear()
             
             for entity in deaths:

@@ -56,3 +56,16 @@ python training/trainer.py
 ```bash
 python evaluation.py
 ```
+
+---
+
+## ⚠️ Status & Known Limitations (v1.1)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Graveyard Order | ✅ | Deaths resolved in summon order. |
+| Complex Triggers | ⚠️ | "Whenever" vs "After" timing might be slightly off in nested chains. |
+| Magnetic | ✅ | Full support for targeting Mechs. |
+| Tradeable | ✅ | Fully implemented (1 mana draw cycle). |
+| Forge | ✅ | Fully implemented (2 mana upgrade logic). |
+| Hand Targeting | ✅ | Friendly targeting enabled in Action Space. |

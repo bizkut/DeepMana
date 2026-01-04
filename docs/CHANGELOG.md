@@ -4,6 +4,23 @@ All notable changes to the HearthstoneOne project.
 
 ---
 
+## [2026-01-04] — Simulator Mechanics V1.1 (Tradeable, Forge, Magnetic)
+
+### ✨ Added
+- **Tradeable Logic** — AI can now trade cards (1 mana) to shuffle them into the deck and draw a replacement.
+- **Forge Logic** — Added support for upgrading cards in hand (2 mana).
+- **Expanded Targeting** — Redesigned the AI action space (300 indices) to support full targeting of friendly minions.
+- **Magnetic Support** — AI can now choose specific friendly Mechs to fuse with when playing Magnetic minions.
+
+### 🔧 Changed
+- **Graveyard Order** — Deaths are now resolved strictly by `summon_timestamp`, ensuring correct deathrattle sequences.
+- **Action space** — Increased `PLAY_CARD` target resolution from 10 to 20 slots per card.
+
+### 🧪 Fixed
+- **Missing Actions** — Enabled `TRADE` and `FORGE` actions in the `HearthstoneGame` wrapper for training.
+
+---
+
 ## [2026-01-04] — Fairness & Turbo Performance
 
 ### ✨ Added

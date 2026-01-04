@@ -217,17 +217,34 @@ class HearthstoneGame:
         # 1. Playable cards from hand
         for i, card in enumerate(player.hand):
             if player.can_play_card(card):
-                targets = player.get_valid_targets(card)
-                if targets: # Simple target check for now
-                    for target in targets:
-                        is_friendly = target.controller == player
+                # Check for possible targets (including friendly ones for buffs/magnetic)
+                possible_targets = player.get_valid_targets(card)
+                
+                # SPECIAL: For Magnetic minions, always allow targeting friendly Mechs
+                if card.data.magnetic:
+                    mechs = [m for m in player.board if m.data.race and 'MECH' in str(m.data.race)]
+                    for mech in mechs:
+                        if mech not in possible_targets:
+                            possible_targets.append(mech)
+                
+                if possible_targets:
+                    for target in possible_targets:
+                        is_friendly = (target.controller == player)
                         target_idx = self._get_entity_index(target, is_friendly)
                         action = Action.play_card(i, target_idx, is_friendly)
-                        action._sim_action = ("play", card, target)
+                        
+                        # For magnetic, we need to pass position to the simulator if we targeting a mech
+                        pos = -1
+                        if card.data.magnetic and is_friendly and target in player.board:
+                            pos = player.board.index(target)
+                            
+                        action._sim_action = ("play", card, target, pos)
                         actions.append(action)
-                else:
+                
+                # Also allow playing without a target if valid
+                if not card.data.battlecry or not possible_targets: # Simplified logic
                     action = Action.play_card(i)
-                    action._sim_action = ("play", card, None)
+                    action._sim_action = ("play", card, None, -1)
                     actions.append(action)
         
         # 2. Attacks
@@ -256,7 +273,21 @@ class HearthstoneGame:
             action._sim_action = ("hero_power", player.hero_power, None)
             actions.append(action)
         
-        # 5. End turn
+        # 5. Tradeable cards
+        for i, card in enumerate(player.hand):
+            if card.data.tradeable and player.mana >= 1:
+                action = Action.trade(i)
+                action._sim_action = ("trade", card, None)
+                actions.append(action)
+        
+        # 6. Forge cards
+        for i, card in enumerate(player.hand):
+            if card.data.forge and player.mana >= 2 and not getattr(card, '_forged', False):
+                action = Action.forge(i)
+                action._sim_action = ("forge", card, None)
+                actions.append(action)
+                
+        # 7. End turn
         end_action = Action.end_turn()
         end_action._sim_action = ("end_turn", None, None)
         actions.append(end_action)
@@ -291,11 +322,17 @@ class HearthstoneGame:
             if action.action_type == ActionType.END_TURN:
                 self.game.end_turn()
             elif op_type == "play":
-                self.game.play_card(entity, target=target)
+                # Handle position if provided (for Magnetic)
+                pos = getattr(action, '_sim_action', (None, None, None, -1))[3]
+                self.game.play_card(entity, target=target, position=pos)
             elif op_type == "attack":
                 self.game.attack(entity, target)
             elif op_type == "hero_power":
                 self.game.use_hero_power(target=target)
+            elif op_type == "trade":
+                self.game.trade_card(entity)
+            elif op_type == "forge":
+                self.game.forge_card(entity)
             elif not op_type:
                 # Fallback: find action matching index
                 for va in self.get_valid_actions():

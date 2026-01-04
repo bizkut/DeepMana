@@ -13,6 +13,8 @@ class ActionType(Enum):
     END_TURN = auto()        # End the current turn
     CHOOSE = auto()          # Choose an option (discover, etc.)
     MULLIGAN = auto()        # Mulligan selection
+    TRADE = auto()           # Trade card back to deck
+    FORGE = auto()           # Forge card in hand
 
 
 @dataclass
@@ -107,6 +109,22 @@ class Action:
             choice_index=sum(1 << i for i in card_indices),  # Bitmask
         )
     
+    @classmethod
+    def trade(cls, card_index: int) -> "Action":
+        """Create a TRADE action."""
+        return cls(
+            action_type=ActionType.TRADE,
+            card_index=card_index,
+        )
+    
+    @classmethod
+    def forge(cls, card_index: int) -> "Action":
+        """Create a FORGE action."""
+        return cls(
+            action_type=ActionType.FORGE,
+            card_index=card_index,
+        )
+    
     def to_index(self, max_hand: int = 10, max_board: int = 7) -> int:
         """
         Convert action to a unique integer index for the neural network.
@@ -114,10 +132,15 @@ class Action:
         Action space layout:
         - 0: END_TURN
         - 1-10: HERO_POWER (0 = no target, 1-7 = enemy minions, 8 = enemy hero, 9 = friendly)
-        - 11-110: PLAY_CARD (10 cards * 10 targets each)
-        - 111-174: ATTACK (8 attackers * 8 targets)
+        - 11-210: PLAY_CARD (10 cards * 20 targets each)
+            - 0: No target
+            - 1-7: Enemy minions
+            - 8: Enemy hero
+            - 9: Friendly hero
+            - 10-16: Friendly minions
+        - 211-274: ATTACK (8 attackers * 8 targets)
         
-        Total: ~175 actions (simplified, actual may vary)
+        Total: ~300 actions
         """
         if self.action_type == ActionType.END_TURN:
             return 0
@@ -127,7 +150,9 @@ class Action:
             if self.target_index is None:
                 return base
             elif self.target_is_friendly:
-                return base + 9
+                if self.target_index == -1: # Friendly hero (fallback)
+                    return base + 9
+                return base + 9 + (self.target_index or 0)
             elif self.target_index == -1:  # Enemy hero
                 return base + 8
             else:
@@ -135,19 +160,22 @@ class Action:
         
         elif self.action_type == ActionType.PLAY_CARD:
             base = 11
-            card_offset = (self.card_index or 0) * 10
+            card_offset = (self.card_index or 0) * 20
             if self.target_index is None:
                 target_offset = 0
+            elif self.target_is_friendly:
+                if self.target_index == -1: # Friendly hero
+                    target_offset = 9
+                else: # Friendly minion 0-6
+                    target_offset = 10 + (self.target_index or 0)
             elif self.target_index == -1:  # Enemy hero
                 target_offset = 8
-            elif self.target_is_friendly:
-                target_offset = 9
-            else:
+            else: # Enemy minion 0-6
                 target_offset = 1 + (self.target_index or 0)
             return base + card_offset + target_offset
         
         elif self.action_type == ActionType.ATTACK:
-            base = 111
+            base = 211
             attacker_offset = ((self.attacker_index or 0) + 1) * 8  # +1 because -1 = hero
             if self.target_index == -1:  # Enemy hero
                 target_offset = 0
@@ -158,6 +186,14 @@ class Action:
         elif self.action_type == ActionType.CHOOSE:
             base = 175
             return base + (self.choice_index or 0)
+            
+        elif self.action_type == ActionType.TRADE:
+            base = 180
+            return base + (self.card_index or 0)
+            
+        elif self.action_type == ActionType.FORGE:
+            base = 190
+            return base + (self.card_index or 0)
         
         return 0
     
@@ -182,21 +218,25 @@ class Action:
             else:
                 return cls.hero_power(target_index=offset - 1)
         
-        elif 11 <= index <= 110:
+        elif 11 <= index <= 210:
             offset = index - 11
-            card_index = offset // 10
-            target_offset = offset % 10
+            card_index = offset // 20
+            target_offset = offset % 20
             if target_offset == 0:
                 return cls.play_card(card_index)
             elif target_offset == 8:
                 return cls.play_card(card_index, target_index=-1)
             elif target_offset == 9:
-                return cls.play_card(card_index, target_index=0, target_is_friendly=True)
-            else:
+                return cls.play_card(card_index, target_index=-1, target_is_friendly=True)
+            elif 1 <= target_offset <= 7:
                 return cls.play_card(card_index, target_index=target_offset - 1)
+            elif 10 <= target_offset <= 16:
+                return cls.play_card(card_index, target_index=target_offset - 10, target_is_friendly=True)
+            else:
+                return cls.play_card(card_index)
         
-        elif 111 <= index <= 174:
-            offset = index - 111
+        elif 211 <= index <= 274:
+            offset = index - 211
             attacker_index = (offset // 8) - 1  # -1 converts back to hero = -1
             target_offset = offset % 8
             if target_offset == 0:
@@ -204,8 +244,14 @@ class Action:
             else:
                 return cls.attack(attacker_index, target_index=target_offset - 1)
         
-        elif 175 <= index <= 177:
-            return cls.choose(index - 175)
+        elif 275 <= index <= 277:
+            return cls.choose(index - 275)
+            
+        elif 280 <= index <= 289:
+            return cls.trade(index - 280)
+            
+        elif 290 <= index <= 294:
+            return cls.forge(index - 290)
             
         return cls.end_turn()
     
@@ -234,8 +280,12 @@ class Action:
             return f"Action(ATTACK[{self.attacker_index}] -> {self.target_index})"
         elif self.action_type == ActionType.CHOOSE:
             return f"Action(CHOOSE[{self.choice_index}])"
+        elif self.action_type == ActionType.TRADE:
+            return f"Action(TRADE[{self.card_index}])"
+        elif self.action_type == ActionType.FORGE:
+            return f"Action(FORGE[{self.card_index}])"
         return f"Action({self.action_type.name})"
 
 
 # Action space constants
-ACTION_SPACE_SIZE = 180  # Expanded for choose actions
+ACTION_SPACE_SIZE = 300  # Expanded for full targeting

@@ -181,6 +181,7 @@ class Card(Entity):
         self._damage: int = 0
         self._dormant: int = 0
         self.mod_cost: int = 0
+        self.summon_timestamp: int = 0
         
         # State flags
         self.exhausted: bool = False

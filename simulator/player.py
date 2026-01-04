@@ -270,6 +270,32 @@ class Player(Entity):
             return True
         return False
     
+    def trade(self, card: Card) -> bool:
+        """
+        Trade a card: spend 1 mana, shuffle into deck, draw a card.
+        """
+        if self.mana < 1:
+            return False
+        
+        if card not in self.hand:
+            return False
+            
+        self.mana -= 1
+        self.hand.remove(card)
+        
+        # Shuffle back into deck
+        card.zone = Zone.DECK
+        self.deck.append(card)
+        self.shuffle_deck()
+        
+        # Draw a card
+        self.draw(1)
+        
+        if self.game:
+            self.game.fire_event("on_card_traded", self, card)
+            
+        return True
+    
     def discard(self, count: int = 1) -> List[Card]:
         """Discard random cards from hand."""
         discarded: List[Card] = []
@@ -297,6 +323,10 @@ class Player(Entity):
         minion.zone_position = position
         minion.exhausted = True  # Summoning sickness
         
+        if self.game:
+            self.game.summon_counter += 1
+            minion.summon_timestamp = self.game.summon_counter
+            
         self.board.insert(position, minion)
         
         # Update positions
