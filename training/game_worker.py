@@ -42,8 +42,26 @@ class RemoteMCTS:
         self.num_simulations = num_simulations
         self._temp_wrapper = HearthstoneGame()
         
-    def _remote_infer(self, state_tensor: torch.Tensor) -> Tuple[torch.Tensor, float]:
+        self._transposition_table = {}  # Cache: state_key -> (policy, value)
+        self._max_cache_size = 10000
+        
+    def _get_state_key(self, wrapper_game) -> str:
+        """Create cache key for game state."""
+        g = wrapper_game.game
+        p = wrapper_game.current_player
+        # Key: turn + player + hand + board + mana + healths
+        # This is a collision-prone simplification but fast
+        return f"{g.turn}_{g.current_player_idx}_{len(p.hand)}_{len(p.board)}_{p.mana}_{p.hero.health if p.hero else 0}"
+
+    def _remote_infer(self, state_tensor: torch.Tensor, wrapper_game=None) -> Tuple[torch.Tensor, float]:
         """Send tensor to inference server and wait for result."""
+        # Check cache if wrapper is provided
+        cache_key = None
+        if wrapper_game:
+            cache_key = self._get_state_key(wrapper_game)
+            if cache_key in self._transposition_table:
+                return self._transposition_table[cache_key]
+
         # Serialize tensor
         tensor_np = state_tensor.numpy()
         tensor_bytes = tensor_np.tobytes()
@@ -60,6 +78,12 @@ class RemoteMCTS:
             np.frombuffer(policy_bytes, dtype=np.float32).copy().reshape(policy_shape)
         )
         
+        # Update cache
+        if cache_key:
+            if len(self._transposition_table) > self._max_cache_size:
+                self._transposition_table.clear()  # Simple eviction
+            self._transposition_table[cache_key] = (policy, value)
+            
         return policy, value
         
     def search(self, game_state, root_node=None) -> Tuple[List[float], object]:
@@ -148,7 +172,7 @@ class RemoteMCTS:
         
         # Encode and send for inference
         tensor = self.encoder.encode(state_data).unsqueeze(0)
-        policy_probs, value = self._remote_infer(tensor)
+        policy_probs, value = self._remote_infer(tensor, wrapper_game=self._temp_wrapper)
         
         # Get valid actions
         valid_actions = self._temp_wrapper.get_valid_actions()
