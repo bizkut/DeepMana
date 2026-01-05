@@ -27,9 +27,10 @@ class InferenceServer:
         self.device = device
         self.num_workers = num_workers
         
-        # Queues for IPC
-        self.request_queue: Queue = mp.Queue()
-        self.result_queues: dict = {i: mp.Queue() for i in range(num_workers)}
+        # Use Manager for queues that can be passed to spawned processes
+        self._manager = mp.Manager()
+        self.request_queue = self._manager.Queue()
+        self.result_queues: dict = {i: self._manager.Queue() for i in range(num_workers)}
         
         # Control
         self._running = False
@@ -52,10 +53,16 @@ class InferenceServer:
         """Stop the inference server."""
         self._running = False
         # Send poison pill to unblock queue
-        self.request_queue.put(None)
+        try:
+            self.request_queue.put(None)
+        except:
+            pass
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+        # Clean up manager
+        if hasattr(self, '_manager'):
+            self._manager.shutdown()
         print(f"[InferenceServer] Stopped. Total requests: {self.total_requests}")
         
     def _serve_loop(self):
