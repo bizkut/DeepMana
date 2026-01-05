@@ -140,6 +140,13 @@ class Trainer:
                 self.model.to("cpu")
             winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
             
+            # Log batch inference stats
+            if self.collector.batch_inference_enabled and self.collector.inference_server:
+                stats = self.collector.inference_server.get_stats()
+                print(f"  [BatchInference] {stats['total_batches']} batches, avg size: {stats['avg_batch_size']:.1f}")
+                self.writer.add_scalar("BatchInference/AvgBatchSize", stats['avg_batch_size'], iteration)
+                self.writer.add_scalar("BatchInference/TotalBatches", stats['total_batches'], iteration)
+            
             # Log winner stats to TensorBoard
             self.writer.add_scalar("Games/Winners_Draw", winners.get(0, 0), iteration)
             self.writer.add_scalar("Games/Winners_P1", winners.get(1, 0), iteration)
