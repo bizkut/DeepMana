@@ -148,7 +148,34 @@ class AIBrain:
             if raw_best != best_idx:
                 print(f"[Brain] Model wanted {raw_best} ({probs[raw_best]:.2f}) but mask forced {best_idx}")
             
-            action = Action.from_index(best_idx)
+            # action = Action.from_index(best_idx) # <-- OLD CAUSE OF BUG (index 0 = End Turn in new scheme)
+            
+            # Manual Mapping (Legacy Model Scheme):
+            # 0-9: Play Card i
+            # 10-16: Attack with Minion i
+            # 17: Hero Attack
+            # 18: Hero Power
+            # 19: End Turn
+            
+            if 0 <= best_idx <= 9:
+                # Play Card
+                action = Action.play_card(best_idx)
+            elif 10 <= best_idx <= 16:
+                # Attack with Minion (assume face target for now if simplified)
+                minion_idx = best_idx - 10
+                action = Action.attack(minion_idx, -1) # -1 usually means enemy hero
+            elif best_idx == 17:
+                # Hero Attack
+                action = Action.attack(-1, -1) # Hero attacks enemy hero
+            elif best_idx == 18:
+                # Hero Power
+                action = Action.hero_power()
+            elif best_idx == 19:
+                # End Turn
+                action = Action.end_turn()
+            else:
+                # Fallback
+                action = Action.from_index(best_idx)
             description = self._action_to_description(action, state)
             
             return action, confidence, description
@@ -165,41 +192,48 @@ class AIBrain:
         
         p = state.friendly_player
         
-        # 0. End Turn (Action 0)
-        mask[0] = 1.0
-        
-        # 1. Hero Power (Action 1 for simple usage)
-        if p.hero_power:
-            hp_cost = p.hero_power.cost
-            hp_usable = p.hero_power.is_usable
-            if hp_usable and (hp_cost <= p.mana):
-                mask[1] = 1.0
-            # Debug
-            if hp_usable:
-                print(f"[Brain] Hero Power: cost={hp_cost}, mana={p.mana}, allowed={hp_cost <= p.mana}")
-
-        # 2. Play Card (Indices 11, 31, 51... for simple play)
-        # Structure from actions.py: 11 + (card_index * 20) = Play Card (no target)
+        # 1. Play Card (0-9)
+        # Check hand size and mana
         playable_actions = []
         for i, card in enumerate(p.hand):
             if i >= 10: break # Action space limited to 10 cards
             
-            # Have enough mana?
+            # Basic check: have enough mana?
             if card.current_cost <= p.mana:
-                # Calculate correct action index for simple play
-                # Base offset for play actions is 11
-                # Each card has 20 slots (1 simple + target variations)
-                action_idx = 11 + (i * 20)
-                if action_idx < self.action_dim:
-                    mask[action_idx] = 1.0
-                    playable_actions.append(f"Card {i} ({card.info.name if card.info else 'Unknown'})")
+                # Map card index to action index (LEGACY MODEL MAPPING)
+                # 0-9 = Play Card i
+                mask[i] = 1.0
+                playable_actions.append(f"Card {i} ({card.info.name if card.info else 'Unknown'})")
         
         if playable_actions:
             print(f"[Brain] Playable card actions: {playable_actions}")
+                
+        # 2. Attack (10-16 for minions, + Hero)
+        # Minions on board
+        for i, minion in enumerate(p.board):
+            if i >= 7: break
             
-        # 3. Attack (Indices 211+)
-        # Simplified: allow simple attacks if we impl logic later
-        # For now, just focusing on fixing the critical Play Card / End Turn bug
+            # Can attack?
+            # Use can_attack property from CardInstance
+            if minion.can_attack:
+                 mask[10 + i] = 1.0
+                 
+        # Hero Attack (Action 17)
+        if p.hero and p.hero.can_attack:
+             mask[17] = 1.0
+             
+        # 3. Hero Power (Action 18)
+        if p.hero_power:
+            hp_cost = p.hero_power.cost
+            hp_usable = p.hero_power.is_usable
+            if hp_usable and (hp_cost <= p.mana):
+                mask[18] = 1.0
+            # Debug: show why hero power was enabled/disabled
+            if hp_usable:
+                print(f"[Brain] Hero Power: cost={hp_cost}, mana={p.mana}, allowed={hp_cost <= p.mana}")
+            
+        # 4. End Turn (Action 19)
+        mask[19] = 1.0
         
         return mask
     
