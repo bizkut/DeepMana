@@ -58,9 +58,15 @@ class SettingsTab(QWidget):
         self.spin_games.setValue(40)
         self.spin_games.setSingleStep(10)
         
+        self.spin_iterations = QSpinBox()
+        self.spin_iterations.setRange(10, 10000)
+        self.spin_iterations.setValue(500)
+        self.spin_iterations.setSingleStep(50)
+        
         form_layout.addRow(self.create_label("BATCH SIZE", "Number of training samples per neural update"), self.spin_batch)
         form_layout.addRow(self.create_label("MCTS SIMULATIONS", "Thinking steps per decision during games"), self.spin_mcts)
         form_layout.addRow(self.create_label("GAMES PER ITERATION", "Self-play games per training cycle"), self.spin_games)
+        form_layout.addRow(self.create_label("TOTAL ITERATIONS", "How many training cycles to run"), self.spin_iterations)
         
         
         self.layout.addWidget(card)
@@ -101,6 +107,7 @@ class SettingsTab(QWidget):
                     self.spin_batch.setValue(data.get("batch_size", 64))
                     self.spin_mcts.setValue(data.get("mcts_sims", 25))
                     self.spin_games.setValue(data.get("games_per_iter", 40))
+                    self.spin_iterations.setValue(data.get("num_iterations", 500))
                     # Device: map stored name to combo index
                     device_map = {"auto": 0, "cpu": 1, "cuda": 2, "mps": 3}
                     device = data.get("device", "auto")
@@ -125,6 +132,7 @@ class SettingsTab(QWidget):
             "batch_size": self.spin_batch.value(),
             "mcts_sims": self.spin_mcts.value(),
             "games_per_iter": self.spin_games.value(),
+            "num_iterations": self.spin_iterations.value(),
             "device": device_options[self.combo_device.currentIndex()]
         })
         
