@@ -127,7 +127,7 @@ class AIBrain:
             
             # Debug Logic
             print(f"[Brain] Mana: {state.friendly_player.mana}/{state.friendly_player.max_mana}")
-            print(f"[Brain] Hand: {[(c.info.name if c else 'None', c.current_cost if c else -1) for c in state.friendly_player.hand[:5]]}")
+            print(f"[Brain] Hand: {[(c.info.name if c else 'None', c.current_cost if c else -1) for c in state.friendly_player.hand]}")
             
             masked_probs = probs * valid_mask
             
