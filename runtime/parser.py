@@ -423,6 +423,7 @@ class LogParser:
         - Plain ID: '42'
         - Full entity: '[entityName=... id=X ... cardId=Y player=Z]'
         - Nested brackets: '[entityName=UNKNOWN ENTITY [cardType=INVALID] id=X ...]'
+        - Player names: 'HippieRogue#1926' (matched to player by name)
         """
         entity_str = entity_str.strip()
         result = {'id': -1}
@@ -432,7 +433,16 @@ class LogParser:
             result['id'] = int(entity_str)
             return result
         
-        # Case 2: Extract ID from anywhere in the string using regex
+        # Case 2: Player name (e.g., "HippieRogue#1926")
+        # Check if entity_str matches a known player name
+        for i, player in enumerate(self.game.players):
+            if player.name and player.name == entity_str:
+                # Player 1 = entity 2, Player 2 = entity 3
+                result['id'] = i + 2
+                result['player'] = i + 1
+                return result
+        
+        # Case 3: Extract ID from anywhere in the string using regex
         # This handles nested brackets because we search the WHOLE string for id=X
         id_match = re.search(r'id=(\d+)', entity_str)
         if id_match:
