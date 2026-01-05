@@ -1,0 +1,412 @@
+[
+    {
+        "iteration": 1,
+        "winners": {
+            "0": 0,
+            "1": 46,
+            "2": 34
+        },
+        "avg_loss": 3.0670885288715364,
+        "buffer_size": 5522
+    },
+    {
+        "iteration": 2,
+        "winners": {
+            "0": 0,
+            "1": 35,
+            "2": 45
+        },
+        "avg_loss": 1.7007376849651337,
+        "buffer_size": 5321
+    },
+    {
+        "iteration": 3,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.6209791254997254,
+        "buffer_size": 10629
+    },
+    {
+        "iteration": 4,
+        "winners": {
+            "0": 0,
+            "1": 40,
+            "2": 40
+        },
+        "avg_loss": 1.5267541575431824,
+        "buffer_size": 15939
+    },
+    {
+        "iteration": 5,
+        "winners": {
+            "0": 0,
+            "1": 41,
+            "2": 39
+        },
+        "avg_loss": 1.526409122943878,
+        "buffer_size": 21204
+    },
+    {
+        "iteration": 6,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.55012664437294,
+        "buffer_size": 26553
+    },
+    {
+        "iteration": 7,
+        "winners": {
+            "0": 0,
+            "1": 35,
+            "2": 45
+        },
+        "avg_loss": 1.4956700241565704,
+        "buffer_size": 31795
+    },
+    {
+        "iteration": 8,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.4706715250015259,
+        "buffer_size": 37119
+    },
+    {
+        "iteration": 9,
+        "winners": {
+            "0": 0,
+            "1": 44,
+            "2": 36
+        },
+        "avg_loss": 1.4519025444984437,
+        "buffer_size": 42164
+    },
+    {
+        "iteration": 10,
+        "winners": {
+            "0": 0,
+            "1": 52,
+            "2": 28
+        },
+        "avg_loss": 1.4332576668262482,
+        "buffer_size": 47528
+    },
+    {
+        "iteration": 11,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.4272685515880585,
+        "buffer_size": 52835
+    },
+    {
+        "iteration": 12,
+        "winners": {
+            "0": 0,
+            "1": 38,
+            "2": 42
+        },
+        "avg_loss": 1.418335052728653,
+        "buffer_size": 58387
+    },
+    {
+        "iteration": 13,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.435597311258316,
+        "buffer_size": 63714
+    },
+    {
+        "iteration": 14,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.4317203867435455,
+        "buffer_size": 69268
+    },
+    {
+        "iteration": 15,
+        "winners": {
+            "0": 0,
+            "1": 36,
+            "2": 44
+        },
+        "avg_loss": 1.4383500027656555,
+        "buffer_size": 74539
+    },
+    {
+        "iteration": 16,
+        "winners": {
+            "0": 0,
+            "1": 44,
+            "2": 36
+        },
+        "avg_loss": 1.4024377799034118,
+        "buffer_size": 79893
+    },
+    {
+        "iteration": 17,
+        "winners": {
+            "0": 0,
+            "1": 45,
+            "2": 35
+        },
+        "avg_loss": 1.4449526131153108,
+        "buffer_size": 85315
+    },
+    {
+        "iteration": 18,
+        "winners": {
+            "0": 0,
+            "1": 50,
+            "2": 30
+        },
+        "avg_loss": 1.432092205286026,
+        "buffer_size": 90584
+    },
+    {
+        "iteration": 19,
+        "winners": {
+            "0": 0,
+            "1": 40,
+            "2": 40
+        },
+        "avg_loss": 1.4338140749931336,
+        "buffer_size": 96100
+    },
+    {
+        "iteration": 20,
+        "winners": {
+            "0": 0,
+            "1": 44,
+            "2": 36
+        },
+        "avg_loss": 1.4136011898517609,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 21,
+        "winners": {
+            "0": 0,
+            "1": 46,
+            "2": 34
+        },
+        "avg_loss": 1.4201987302303314,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 22,
+        "winners": {
+            "0": 0,
+            "1": 38,
+            "2": 42
+        },
+        "avg_loss": 1.4207426595687866,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 23,
+        "winners": {
+            "0": 0,
+            "1": 45,
+            "2": 35
+        },
+        "avg_loss": 1.4399019706249236,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 24,
+        "winners": {
+            "0": 0,
+            "1": 33,
+            "2": 47
+        },
+        "avg_loss": 1.418450632095337,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 25,
+        "winners": {
+            "0": 0,
+            "1": 38,
+            "2": 42
+        },
+        "avg_loss": 1.396490205526352,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 26,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.396595879793167,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 27,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.4030650794506072,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 28,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.395791848897934,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 29,
+        "winners": {
+            "0": 0,
+            "1": 39,
+            "2": 41
+        },
+        "avg_loss": 1.4076393151283264,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 30,
+        "winners": {
+            "0": 0,
+            "1": 45,
+            "2": 35
+        },
+        "avg_loss": 1.4270439732074738,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 31,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.4323129546642304,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 32,
+        "winners": {
+            "0": 0,
+            "1": 39,
+            "2": 41
+        },
+        "avg_loss": 1.39641388297081,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 33,
+        "winners": {
+            "0": 0,
+            "1": 37,
+            "2": 43
+        },
+        "avg_loss": 1.392401338815689,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 34,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.3818597328662872,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 35,
+        "winners": {
+            "0": 0,
+            "1": 47,
+            "2": 33
+        },
+        "avg_loss": 1.3949715197086334,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 36,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.3692127966880798,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 37,
+        "winners": {
+            "0": 0,
+            "1": 43,
+            "2": 37
+        },
+        "avg_loss": 1.3855759608745575,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 38,
+        "winners": {
+            "0": 0,
+            "1": 51,
+            "2": 29
+        },
+        "avg_loss": 1.3765509581565858,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 39,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.3719188678264618,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 40,
+        "winners": {
+            "0": 0,
+            "1": 42,
+            "2": 38
+        },
+        "avg_loss": 1.3751719498634338,
+        "buffer_size": 100000
+    },
+    {
+        "iteration": 41,
+        "winners": {
+            "0": 0,
+            "1": 41,
+            "2": 39
+        },
+        "avg_loss": 1.3579596376419067,
+        "buffer_size": 100000
+    }
+]

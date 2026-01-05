@@ -118,16 +118,21 @@ class Trainer:
                 
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")
             
-            # Curriculum: Increase MCTS simulations progressively
+            # Curriculum: Scale relative to user config
+            target_mcts = self.config.get("mcts_sims", 40)
+            
             if iteration < 20:
-                current_mcts = 15
+                # Start fast (50% of target, min 15)
+                current_mcts = max(15, int(target_mcts * 0.5))
             elif iteration < 50:
-                current_mcts = 25
+                # Ramp up (75% of target, min 25)
+                current_mcts = max(25, int(target_mcts * 0.75))
             else:
-                current_mcts = 40
+                # Full power
+                current_mcts = target_mcts
             
             if current_mcts != self.mcts_sims:
-                print(f"  [Curriculum] Increasing MCTS simulations: {self.mcts_sims} -> {current_mcts}")
+                print(f"  [Curriculum] Adjusting MCTS simulations: {self.mcts_sims} -> {current_mcts} (Target: {target_mcts})")
                 self.mcts_sims = current_mcts
             
             # 1. Self-Play (model stays on GPU - inference server uses it)
