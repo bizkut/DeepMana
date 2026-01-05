@@ -159,6 +159,14 @@ class SpyTab(QWidget):
         if self.overlay_window:
             self.overlay_window.close()
             self.overlay_window = None
+        
+        # Kill macOS overlay process (fallback if IPC quit message failed)
+        if is_macos():
+            try:
+                subprocess.run(["killall", "DeepManaOverlay"], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except:
+                pass
             
         self.btn_toggle.setText("START ASSISTANT")
         self.btn_toggle.setObjectName("neural-btn")
@@ -170,9 +178,12 @@ class SpyTab(QWidget):
         # Look for the built overlay app
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         overlay_paths = [
+            # Prioritize the .app bundle (likely has permissions)
+            os.path.join(project_root, "overlay-macos", "DeepManaOverlay.app", "Contents", "MacOS", "DeepManaOverlay"),
+            "/Applications/DeepManaOverlay.app/Contents/MacOS/DeepManaOverlay",
+            # Fallback to build artifacts
             os.path.join(project_root, "overlay-macos", ".build", "release", "DeepManaOverlay"),
             os.path.join(project_root, "overlay-macos", ".build", "debug", "DeepManaOverlay"),
-            "/Applications/DeepManaOverlay.app/Contents/MacOS/DeepManaOverlay",
         ]
         
         for path in overlay_paths:

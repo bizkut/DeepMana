@@ -3,13 +3,14 @@ import SwiftUI
 
 class OverlayWindow: NSPanel {
     var overlayView: OverlayContentView!
+    var trackingTimer: Timer?
     
     init() {
-        // Get main screen size
-        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        // Start with a default frame, will be updated
+        let defaultFrame = NSRect(x: 0, y: 0, width: 1920, height: 1080)
         
         super.init(
-            contentRect: screenFrame,
+            contentRect: defaultFrame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -17,7 +18,7 @@ class OverlayWindow: NSPanel {
         
         // Window configuration for overlay
         self.isFloatingPanel = true
-        self.level = .floating  // Stays above normal windows
+        self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.isOpaque = false
         self.backgroundColor = .clear
@@ -27,8 +28,87 @@ class OverlayWindow: NSPanel {
         // Create the SwiftUI view
         overlayView = OverlayContentView()
         let hostingView = NSHostingView(rootView: OverlayRootView(content: overlayView))
-        hostingView.frame = screenFrame
         self.contentView = hostingView
+        
+        // Start tracking Hearthstone window
+        startTrackingHearthstone()
+        
+        print("[OverlayWindow] Initialized, tracking Hearthstone window...")
+    }
+    
+    func startTrackingHearthstone() {
+        // Initial position
+        updatePositionToHearthstone()
+        
+        // Poll every 0.5 seconds for window position changes
+        trackingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.updatePositionToHearthstone()
+        }
+    }
+    
+    func stopTracking() {
+        trackingTimer?.invalidate()
+        trackingTimer = nil
+    }
+    
+    func updatePositionToHearthstone() {
+        guard let hsFrame = findHearthstoneWindow() else {
+            // Hearthstone not found, hide overlay
+            self.orderOut(nil)
+            return
+        }
+        
+        // Convert from screen coordinates (top-left origin) to Cocoa (bottom-left origin)
+        guard let screen = NSScreen.main else { return }
+        let screenHeight = screen.frame.height
+        
+        let cocoaFrame = NSRect(
+            x: hsFrame.origin.x,
+            y: screenHeight - hsFrame.origin.y - hsFrame.height,
+            width: hsFrame.width,
+            height: hsFrame.height
+        )
+        
+        // Update frame if changed
+        if self.frame != cocoaFrame {
+            self.setFrame(cocoaFrame, display: true)
+            (self.contentView as? NSHostingView<OverlayRootView>)?.frame = NSRect(origin: .zero, size: cocoaFrame.size)
+            print("[OverlayWindow] Positioned on Hearthstone: \(cocoaFrame)")
+        }
+        
+        // Make sure we're visible
+        if !self.isVisible {
+            self.orderFrontRegardless()
+        }
+    }
+    
+    func findHearthstoneWindow() -> CGRect? {
+        // Get list of all windows
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+        
+        // Find Hearthstone window
+        for window in windowList {
+            guard let ownerName = window[kCGWindowOwnerName as String] as? String,
+                  ownerName == "Hearthstone",
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat] else {
+                continue
+            }
+            
+            let x = bounds["X"] ?? 0
+            let y = bounds["Y"] ?? 0
+            let width = bounds["Width"] ?? 0
+            let height = bounds["Height"] ?? 0
+            
+            // Skip very small windows (like menu bar items)
+            if width > 400 && height > 300 {
+                return CGRect(x: x, y: y, width: width, height: height)
+            }
+        }
+        
+        return nil
     }
 }
 
