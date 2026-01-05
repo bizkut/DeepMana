@@ -118,6 +118,19 @@ class LogParser:
             entity_match = re.search(r"Entity=\[.*player=(\d+)", line)
             if entity_match:
                 self.local_player_id = int(entity_match.group(1))
+            elif self.local_player_id is None:
+                # Fallback: first player to enter mulligan is likely local
+                # Try alternative format: Entity=PlayerName 
+                name_match = re.search(r"Entity=([^\s\[]+)", line)
+                if name_match:
+                    player_name = name_match.group(1)
+                    # Find which player has this name
+                    for i, p in enumerate(self.game.players):
+                        if p.name == player_name:
+                            self.local_player_id = i + 1
+                            break
+                if self.local_player_id is None:
+                    self.local_player_id = 1  # Default to player 1
         
         # === TAG CHANGES ===
         tag_match = self.regex_tag.search(line)
@@ -297,10 +310,13 @@ class LogParser:
                     if hasattr(card_data, 'health'):
                         entity.health = card_data.health
                         entity.max_health = card_data.health
+                    print(f"[SHOW_ENTITY] id={entity_id} -> {entity.name} (cost {entity.cost})")
+                else:
+                    print(f"[SHOW_ENTITY] id={entity_id} cardId={card_id} NOT FOUND in database!")
             
             # Update zone if present in the SHOW_ENTITY line
             if line:
-                zone_match = re.search(r'zone=(\\w+)', line, re.IGNORECASE)
+                zone_match = re.search(r'zone=(\w+)', line, re.IGNORECASE)
                 if zone_match:
                     zone_str = zone_match.group(1).upper()
                     try:
