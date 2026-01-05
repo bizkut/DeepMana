@@ -352,15 +352,25 @@ class LogParser:
                     print(f"[SHOW_ENTITY] id={entity_id} cardId={card_id} NOT FOUND in database!")
             
             # Update zone if present in the SHOW_ENTITY line
+            zone_parsed = None
             if line:
                 zone_match = re.search(r'zone=(\w+)', line, re.IGNORECASE)
                 if zone_match:
                     zone_str = zone_match.group(1).upper()
                     try:
-                        new_zone = Zone[zone_str]
-                        self._move_to_zone(entity, new_zone)
+                        zone_parsed = Zone[zone_str]
+                        self._move_to_zone(entity, zone_parsed)
                     except KeyError:
                         pass
+            
+            # SYNC: Ensure entity is in the correct zone list
+            # If entity has zone=HAND but isn't in player.hand, add it
+            controller = getattr(entity, 'controller', None)
+            entity_zone = getattr(entity, 'zone', None)
+            if controller and entity_zone == Zone.HAND:
+                if entity not in controller.hand:
+                    controller.hand.append(entity)
+                    print(f"[SHOW_ENTITY] Synced entity {entity_id} to {controller.name}'s hand")
                     
     def _handle_attack(self, attacker_id: int, target_id: int):
         """Track attack events for visualization."""
