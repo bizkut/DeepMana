@@ -613,11 +613,25 @@ class LogParser:
         return None
 
     def _find_player_by_entity_id(self, entity_id: int):
-        """Finds player object by their Hero entity ID or direct ID."""
+        """Finds player object by their Hero entity ID or Player entity ID.
+        
+        In Hearthstone logs:
+        - Entity ID 1 = GameEntity
+        - Entity ID 2 = Player 1's player entity  
+        - Entity ID 3 = Player 2's player entity
+        - Higher IDs = cards, heroes, etc.
+        """
+        # Direct player entity mapping (IDs 2 and 3 are player entities in HS)
+        if entity_id == 2:
+            return self.game.players[0] if len(self.game.players) > 0 else None
+        if entity_id == 3:
+            return self.game.players[1] if len(self.game.players) > 1 else None
+        
         # Check hero entities
         for player_idx, hero_id in self.hero_entities.items():
             if hero_id == entity_id:
-                return self.game.players[player_idx]
+                if player_idx - 1 < len(self.game.players):
+                    return self.game.players[player_idx - 1]
         
         # If we can't find by ID, try looking up the entity in map and checking controller
         if entity_id in self.entity_map:
