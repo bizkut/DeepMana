@@ -38,3 +38,8 @@ runs/
 
 # Config (local)
 config.local.yaml
+
+# Swift
+.build/
+*.xcodeproj/project.xcworkspace/xcuserdata
+*.xcodeproj/xcuserdata

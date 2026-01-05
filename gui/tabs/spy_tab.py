@@ -1,9 +1,14 @@
+import platform
+import subprocess
+import os
+
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
                              QLabel, QPushButton, QComboBox, QCheckBox, QApplication)
 from PyQt6.QtCore import Qt
 import qtawesome as qta
 from runtime.live_assistant import AssistantWorker
 from overlay.overlay_window import OverlayWindow
+from overlay.overlay_bridge import OverlayBridge, is_macos
 
 class SpyTab(QWidget):
     def __init__(self):
@@ -100,9 +105,17 @@ class SpyTab(QWidget):
             self.start_assistant()
 
     def start_assistant(self):
-        # 1. Create Overlay (Main Thread)
-        self.overlay_window = OverlayWindow()
-        self.overlay_window.show()
+        # 1. Create Overlay (Platform-specific)
+        if is_macos():
+            # Use IPC bridge for native Swift overlay
+            self.overlay_window = OverlayBridge()
+            self.overlay_window.start()
+            # Launch Swift overlay app if not running
+            self._launch_macos_overlay()
+        else:
+            # Windows: use PyQt6 overlay
+            self.overlay_window = OverlayWindow()
+            self.overlay_window.show()
         
         # 2. Create Worker (Background Thread)
         self.assistant_worker = AssistantWorker(use_model=True)
@@ -119,6 +132,14 @@ class SpyTab(QWidget):
         self.assistant_worker.winrate_signal.connect(self.overlay_window.update_winrate)
         self.assistant_worker.arrow_signal.connect(self.overlay_window.set_arrow)
         self.assistant_worker.highlight_signal.connect(self.overlay_window.set_highlight)
+        
+        # Connect action queue signal (both PyQt6 and IPC bridge support this)
+        if hasattr(self.assistant_worker, 'action_queue_signal') and hasattr(self.overlay_window, 'set_action_queue'):
+            self.assistant_worker.action_queue_signal.connect(self.overlay_window.set_action_queue)
+        
+        # Connect mana signal
+        if hasattr(self.assistant_worker, 'mana_signal') and hasattr(self.overlay_window, 'update_mana'):
+            self.assistant_worker.mana_signal.connect(self.overlay_window.update_mana)
         
         self.assistant_worker.start()
         
@@ -144,3 +165,24 @@ class SpyTab(QWidget):
         self.btn_toggle.setIcon(qta.icon("fa5s.play", color="white"))
         self.btn_toggle.setStyle(self.btn_toggle.style())
 
+    def _launch_macos_overlay(self):
+        """Launch the native Swift overlay app on macOS."""
+        # Look for the built overlay app
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        overlay_paths = [
+            os.path.join(project_root, "overlay-macos", ".build", "release", "DeepManaOverlay"),
+            os.path.join(project_root, "overlay-macos", ".build", "debug", "DeepManaOverlay"),
+            "/Applications/DeepManaOverlay.app/Contents/MacOS/DeepManaOverlay",
+        ]
+        
+        for path in overlay_paths:
+            if os.path.exists(path):
+                try:
+                    subprocess.Popen([path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print(f"[SpyTab] Launched macOS overlay: {path}")
+                    return
+                except Exception as e:
+                    print(f"[SpyTab] Failed to launch overlay: {e}")
+        
+        print("[SpyTab] macOS overlay not found. Please build it first:")
+        print("         cd overlay-macos && swift build -c release")
