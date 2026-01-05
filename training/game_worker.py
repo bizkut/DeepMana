@@ -57,7 +57,7 @@ class RemoteMCTS:
         
         # Deserialize result
         policy = torch.from_numpy(
-            np.frombuffer(policy_bytes, dtype=np.float32).reshape(policy_shape)
+            np.frombuffer(policy_bytes, dtype=np.float32).copy().reshape(policy_shape)
         )
         
         return policy, value

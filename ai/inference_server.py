@@ -12,6 +12,7 @@ from multiprocessing import Queue
 from typing import Optional, Tuple
 import time
 import queue
+import numpy as np
 
 
 class InferenceServer:
@@ -80,8 +81,9 @@ class InferenceServer:
                 worker_id, tensor_bytes, tensor_shape = request
                 
                 # Deserialize tensor
-                tensor = torch.frombuffer(tensor_bytes, dtype=torch.float32).reshape(tensor_shape)
-                tensor = tensor.to(self.device)
+                tensor = torch.from_numpy(
+                    np.frombuffer(tensor_bytes, dtype=np.float32).copy().reshape(tensor_shape)
+                ).to(self.device)
                 
                 # Run inference
                 with torch.no_grad():
