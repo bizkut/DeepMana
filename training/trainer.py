@@ -96,7 +96,7 @@ class Trainer:
         
         for iteration in range(start_iter, self.num_iterations):
             if self.stop_flag:
-                print("Arrêt de l'entraînement demandé par l'utilisateur.")
+                print(">>> User requested stop. HALTING after current game batch...")
                 break
                 
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")

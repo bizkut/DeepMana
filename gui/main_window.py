@@ -133,10 +133,10 @@ class MainWindow(QMainWindow):
     def start_training(self):
         self.status_label.setText("● TRAINING ACTIVE")
         self.status_label.setStyleSheet("color: #4ec9b0; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;")
-        self.console.append(">>> Démarrage du moteur d'entraînement...")
+        self.console.append(">>> Initializing DeepMana Training Engine...")
 
     def stop_training(self):
-        self.console.append(">>> Demande d'arrêt en cours...")
+        self.console.append(">>> Stop command received. Finishing current iteration...")
         self.training_thread.stop()
 
     def on_training_finished(self):
@@ -144,7 +144,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #8a8a8a; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;")
         self.training_page.btn_start.setEnabled(True)
         self.training_page.btn_stop.setEnabled(False)
-        self.console.append(">>> Moteur arrêté.")
+        self.console.append(">>> Training Engine shut down successfully.")
 
     def load_stylesheet(self):
         css_path = os.path.join(os.path.dirname(__file__), "style.css")
