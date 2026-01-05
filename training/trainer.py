@@ -106,6 +106,13 @@ class Trainer:
         print(f"TensorBoard: tensorboard --logdir=runs")
     
     
+    
+    def shutdown(self):
+        """Cleanup resources."""
+        if hasattr(self, 'collector') and self.collector:
+            print("[Trainer] Shutting down data collector...")
+            self.collector.shutdown()
+    
     def train(self, iteration_callback=None):
         """Main training loop."""
         start_iter = self.load_latest_checkpoint()

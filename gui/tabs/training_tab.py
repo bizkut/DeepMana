@@ -59,6 +59,8 @@ class TrainingWorker(QThread):
             self.log_signal.emit(f"Error: {e}")
             self.status_signal.emit("ERROR")
         finally:
+            if self.trainer:
+                self.trainer.shutdown()
             sys.stdout = old_stdout  # Restore stdout
     
     def request_stop(self):
