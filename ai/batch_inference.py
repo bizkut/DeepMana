@@ -57,6 +57,7 @@ class BatchInferenceServer:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
+        self._model_lock = threading.Lock()  # Lock for model inference
         
         # Metrics
         self.total_requests = 0
@@ -119,13 +120,14 @@ class BatchInferenceServer:
         
     def _direct_infer(self, tensor: torch.Tensor) -> Tuple[torch.Tensor, float]:
         """Direct single-sample inference (fallback)."""
-        self.model.eval()
-        with torch.no_grad():
-            tensor = tensor.to(self.device)
-            if tensor.dim() == 1:
-                tensor = tensor.unsqueeze(0)
-            policy, value = self.model(tensor)
-            return policy[0], value.item()
+        with self._model_lock:
+            self.model.eval()
+            with torch.no_grad():
+                tensor = tensor.to(self.device)
+                if tensor.dim() == 1:
+                    tensor = tensor.unsqueeze(0)
+                policy, value = self.model(tensor)
+                return policy[0], value.item()
             
     def _batch_loop(self):
         """Main batch processing loop."""
@@ -166,15 +168,20 @@ class BatchInferenceServer:
                 
             batch_tensor = torch.cat(tensors, dim=0).to(self.device)
             
-            # Batch inference
-            self.model.eval()
-            with torch.no_grad():
-                policies, values = self.model(batch_tensor)
+            # Batch inference with model lock for thread safety
+            with self._model_lock:
+                self.model.eval()
+                with torch.no_grad():
+                    policies, values = self.model(batch_tensor)
                 
             # Distribute results
             for i, req in enumerate(batch):
                 req.policy = policies[i]
-                req.value = values[i].item()
+                # Handle both (N,1) and (N,) value tensor shapes
+                if values.dim() > 1:
+                    req.value = values[i].item()
+                else:
+                    req.value = values[i].item() if i < len(values) else 0.0
                 req.result_event.set()
                 
             # Update metrics
