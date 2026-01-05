@@ -105,8 +105,8 @@ class RemoteMCTS:
         """Add Dirichlet noise to existing root children for exploration."""
         if not root.children:
             return
-        epsilon = 0.25  # Weight of noise vs prior
-        alpha = 0.3  # Dirichlet concentration (lower = more varied)
+        epsilon = 0.40  # Weight of noise vs prior (increased from 0.25)
+        alpha = 0.15  # Dirichlet concentration (lower = more varied, decreased from 0.3)
         
         noise = np.random.dirichlet([alpha] * len(root.children))
         for i, child in enumerate(root.children.values()):
