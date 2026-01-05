@@ -123,7 +123,7 @@ class TrainingTab(QWidget):
         stats_row = QHBoxLayout()
         self.stat_iter = self.create_mini_stat("ITERATION", "0")
         self.stat_status = self.create_mini_stat("STATUS", "READY")
-        self.stat_wr = self.create_mini_stat("WIN RATE (P2)", "--%")
+        self.stat_wr = self.create_mini_stat("P1 WIN RATE", "--%")
         stats_row.addWidget(self.stat_iter)
         stats_row.addStretch()
         stats_row.addWidget(self.stat_status)
