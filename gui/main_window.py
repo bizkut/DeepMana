@@ -137,6 +137,7 @@ class MainWindow(QMainWindow):
 
     def stop_training(self):
         self.console.append(">>> Demande d'arrêt en cours...")
+        self.training_thread.stop()
 
     def on_training_finished(self):
         self.status_label.setText("● SYSTEM READY")
