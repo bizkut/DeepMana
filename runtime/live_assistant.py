@@ -51,11 +51,19 @@ class AssistantWorker(QThread):
         self.parser = LogParser(self.game, on_state_change=self._on_game_state_changed)
         self.watcher = LogWatcher(self.handle_log_line)
         
-        # AI Brain
-        self.use_model = False  # Disabled - model has fixed input size, real games have variable states
+        # AI Brain - Try to load trained model, fall back to heuristics
+        self.use_model = False
         self.brain = None
-        # For now, always use heuristics until model architecture supports variable input
-        print("[Assistant] Using heuristic-based suggestions (model disabled for live play)")
+        try:
+            from ai.brain import AIBrain
+            self.brain = AIBrain()
+            if self.brain.load_latest_model():
+                self.use_model = True
+                print("[Assistant] Neural model loaded - using AI suggestions")
+            else:
+                print("[Assistant] No model found - using heuristic suggestions")
+        except Exception as e:
+            print(f"[Assistant] Could not load model ({e}) - using heuristics")
         
         # Throttle analysis to avoid spam
         self.last_analysis_time = 0
@@ -149,7 +157,7 @@ class AssistantWorker(QThread):
         state = GameState.from_simulator_game(self.game, perspective_player_id=perspective)
         
         # === USE ALPHAZERO MODEL ===
-        if self.brain is not None:
+        if self.use_model and self.brain is not None:
             self._suggest_with_brain(state, local_player)
             return
 
