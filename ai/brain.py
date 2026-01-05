@@ -124,18 +124,29 @@ class AIBrain:
             
             # Get valid actions mask from state directly (more reliable)
             valid_mask = self._get_valid_action_mask_from_state(state)
+            
+            # Debug Logic
+            print(f"[Brain] Mana: {state.friendly_player.mana}/{state.friendly_player.max_mana}")
+            print(f"[Brain] Hand: {[(c.info.name if c else 'None', c.current_cost if c else -1) for c in state.friendly_player.hand[:5]]}")
+            
             masked_probs = probs * valid_mask
             
             # Normalize
             if masked_probs.sum() > 0:
                 masked_probs = masked_probs / masked_probs.sum()
             else:
+                print(f"[Brain] WARN: All actions masked! Mask sum: {valid_mask.sum()}")
                 # Fallback: End Turn
                 return Action.end_turn(), 1.0, "End Turn (forced)"
             
             # Get best action
             best_idx = np.argmax(masked_probs)
             confidence = float(masked_probs[best_idx])
+            
+            # Debug: what did the model want vs what did it get?
+            raw_best = np.argmax(probs)
+            if raw_best != best_idx:
+                print(f"[Brain] Model wanted {raw_best} ({probs[raw_best]:.2f}) but mask forced {best_idx}")
             
             action = Action.from_index(best_idx)
             description = self._action_to_description(action, state)
@@ -161,11 +172,8 @@ class AIBrain:
             if i >= 10: break # Action space limited to 10 cards
             
             # Basic check: have enough mana?
-            # Note: This doesn't account for dynamic cost reductions perfectly unless parser tracks them well.
-            # But it's better than nothing.
-            if card.cost <= p.mana:
+            if card.current_cost <= p.mana:
                 # Map card index to action index
-                # Assuming simple mapping: 0-9 are Play Card 0-9
                 mask[i] = 1.0
                 
         # 2. Attack (10-16 for minions, + Hero)
@@ -173,19 +181,17 @@ class AIBrain:
         for i, minion in enumerate(p.board):
             if i >= 7: break
             
-            # Can attack? (Not frozen, not asleep, has attack > 0)
-            # Parser might not track "asleep" perfectly, but ATK > 0 is a good check
-            if minion.atk > 0 and not minion.frozen:
-                 # TODO: Check if already attacked? Parser tracking needed.
-                 # Shift index: 10 + i
+            # Can attack?
+            # Use can_attack property from CardInstance
+            if minion.can_attack:
                  mask[10 + i] = 1.0
                  
         # Hero Attack (Action 17)
-        if p.hero and p.hero.atk > 0 and not p.hero.frozen:
+        if p.hero and p.hero.can_attack:
              mask[17] = 1.0
              
         # 3. Hero Power (Action 18)
-        if p.hero and (p.hero.power.cost <= p.mana) and not p.hero.power.exhausted:
+        if p.hero_power and p.hero_power.is_usable and (p.hero_power.cost <= p.mana):
             mask[18] = 1.0
             
         # 4. End Turn (Action 19)
