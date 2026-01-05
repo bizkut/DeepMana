@@ -164,44 +164,42 @@ class AIBrain:
         mask = np.zeros(self.action_dim, dtype=np.float32)
         
         p = state.friendly_player
-        op = state.enemy_player
         
-        # 1. Play Card (0-9)
-        # Check hand size and mana
-        for i, card in enumerate(p.hand):
-            if i >= 10: break # Action space limited to 10 cards
-            
-            # Basic check: have enough mana?
-            if card.current_cost <= p.mana:
-                # Map card index to action index
-                mask[i] = 1.0
-                
-        # 2. Attack (10-16 for minions, + Hero)
-        # Minions on board
-        for i, minion in enumerate(p.board):
-            if i >= 7: break
-            
-            # Can attack?
-            # Use can_attack property from CardInstance
-            if minion.can_attack:
-                 mask[10 + i] = 1.0
-                 
-        # Hero Attack (Action 17)
-        if p.hero and p.hero.can_attack:
-             mask[17] = 1.0
-             
-        # 3. Hero Power (Action 18)
+        # 0. End Turn (Action 0)
+        mask[0] = 1.0
+        
+        # 1. Hero Power (Action 1 for simple usage)
         if p.hero_power:
             hp_cost = p.hero_power.cost
             hp_usable = p.hero_power.is_usable
             if hp_usable and (hp_cost <= p.mana):
-                mask[18] = 1.0
-            # Debug: show why hero power was enabled/disabled
+                mask[1] = 1.0
+            # Debug
             if hp_usable:
                 print(f"[Brain] Hero Power: cost={hp_cost}, mana={p.mana}, allowed={hp_cost <= p.mana}")
+
+        # 2. Play Card (Indices 11, 31, 51... for simple play)
+        # Structure from actions.py: 11 + (card_index * 20) = Play Card (no target)
+        playable_actions = []
+        for i, card in enumerate(p.hand):
+            if i >= 10: break # Action space limited to 10 cards
             
-        # 4. End Turn (Action 19)
-        mask[19] = 1.0
+            # Have enough mana?
+            if card.current_cost <= p.mana:
+                # Calculate correct action index for simple play
+                # Base offset for play actions is 11
+                # Each card has 20 slots (1 simple + target variations)
+                action_idx = 11 + (i * 20)
+                if action_idx < self.action_dim:
+                    mask[action_idx] = 1.0
+                    playable_actions.append(f"Card {i} ({card.info.name if card.info else 'Unknown'})")
+        
+        if playable_actions:
+            print(f"[Brain] Playable card actions: {playable_actions}")
+            
+        # 3. Attack (Indices 211+)
+        # Simplified: allow simple attacks if we impl logic later
+        # For now, just focusing on fixing the critical Play Card / End Turn bug
         
         return mask
     
