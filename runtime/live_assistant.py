@@ -49,7 +49,8 @@ class AssistantWorker(QThread):
         
         # Parser with state change callback
         self.parser = LogParser(self.game, on_state_change=self._on_game_state_changed)
-        self.watcher = LogWatcher(self.handle_log_line)
+        # Scan only new log lines to avoid re-playing old games
+        self.watcher = LogWatcher(self.handle_log_line, skip_history=True)
         
         # AI Brain - Try to load trained model, fall back to heuristics
         self.use_model = False
