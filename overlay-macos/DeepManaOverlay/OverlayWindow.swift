@@ -164,16 +164,17 @@ struct OverlayRootView: View {
     }
     
     func drawOverlayGraphics(context: GraphicsContext, size: CGSize) {
+        let screenWidth = size.width
         let screenHeight = size.height
         
         // Pulsing animation (simplified - use Timer for real animation)
         let pulse: CGFloat = 0.5
         
-        // Draw arrow
+        // Draw arrow (coordinates are percentages 0.0-1.0)
         if let start = content.arrowStart, let end = content.arrowEnd {
-            // Convert Y (macOS has flipped coordinates)
-            let startPt = CGPoint(x: start.x, y: screenHeight - start.y)
-            let endPt = CGPoint(x: end.x, y: screenHeight - end.y)
+            // Convert percentages to pixels, flip Y (macOS has flipped coordinates)
+            let startPt = CGPoint(x: start.x * screenWidth, y: screenHeight - (start.y * screenHeight))
+            let endPt = CGPoint(x: end.x * screenWidth, y: screenHeight - (end.y * screenHeight))
             
             // Glow
             var path = Path()
@@ -203,9 +204,9 @@ struct OverlayRootView: View {
             )
         }
         
-        // Draw highlight
+        // Draw highlight (coordinates are percentages 0.0-1.0)
         if let pos = content.highlightPos {
-            let pt = CGPoint(x: pos.x, y: screenHeight - pos.y)
+            let pt = CGPoint(x: pos.x * screenWidth, y: screenHeight - (pos.y * screenHeight))
             let radius: CGFloat = 35 + (8 * pulse)
             
             // Ring

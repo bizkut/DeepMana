@@ -26,9 +26,10 @@ class OverlayBridge:
     """
     Broadcasts overlay state to native macOS app via Unix socket.
     Thread-safe, non-blocking design.
+    Sends coordinates as percentages (0.0–1.0) for resolution independence.
     """
     
-    def __init__(self):
+    def __init__(self, geometry_width: int = 1920, geometry_height: int = 1080):
         self.running = False
         self.socket_path = SOCKET_PATH
         self.server_socket: Optional[socket.socket] = None
@@ -37,6 +38,9 @@ class OverlayBridge:
         self._server_thread: Optional[threading.Thread] = None
         self._broadcast_thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
+        # Store geometry dimensions for converting to percentages
+        self.geometry_width = geometry_width
+        self.geometry_height = geometry_height
         
     def start(self):
         """Start the IPC server."""
@@ -154,20 +158,28 @@ class OverlayBridge:
         
     # === Public API (matches OverlayWindow interface) ===
     
+    def set_geometry_size(self, width: int, height: int):
+        """Update the geometry dimensions (called when window size changes)."""
+        self.geometry_width = width
+        self.geometry_height = height
+        
     def set_arrow(self, start, end):
-        """Send arrow coordinates."""
+        """Send arrow coordinates as percentages (0.0–1.0)."""
         if start and end:
             self._send("arrow", {
-                "start": {"x": start.x, "y": start.y},
-                "end": {"x": end.x, "y": end.y}
+                "start": {"x": start.x / self.geometry_width, "y": start.y / self.geometry_height},
+                "end": {"x": end.x / self.geometry_width, "y": end.y / self.geometry_height}
             })
         else:
             self._send("arrow", {"start": None, "end": None})
             
     def set_highlight(self, pos):
-        """Send highlight position."""
+        """Send highlight position as percentage (0.0–1.0)."""
         if pos:
-            self._send("highlight", {"x": pos.x, "y": pos.y})
+            self._send("highlight", {
+                "x": pos.x / self.geometry_width, 
+                "y": pos.y / self.geometry_height
+            })
         else:
             self._send("highlight", None)
             
