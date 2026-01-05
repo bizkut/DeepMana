@@ -15,8 +15,9 @@ from ai.mcts import MCTS
 from ai.game_wrapper import HearthstoneGame
 from ai.replay_buffer import ReplayBuffer
 from ai.actions import Action
+from ai.batch_inference import BatchInferenceServer
 
-def _play_game_worker(model, mcts_sims, game_idx, verbose):
+def _play_game_worker(model, mcts_sims, game_idx, verbose, inference_server=None):
     """Worker function for multithreading."""
     try:
         # Load card database ONCE (Thread-safe)
@@ -40,8 +41,8 @@ def _play_game_worker(model, mcts_sims, game_idx, verbose):
         step_count = 0
         max_steps = 500
         
-        # Create MCTS once per game
-        mcts = MCTS(model, encoder, None, num_simulations=mcts_sims)
+        # Create MCTS once per game - with optional batch inference server
+        mcts = MCTS(model, encoder, None, num_simulations=mcts_sims, inference_server=inference_server)
         
         while not env.is_game_over and step_count < max_steps:
             # Dynamic perspective
@@ -77,11 +78,31 @@ def _play_game_worker(model, mcts_sims, game_idx, verbose):
         raise e
 
 class DataCollector:
-    def __init__(self, model: HearthstoneModel, buffer: ReplayBuffer, num_workers: int = 4):
+    def __init__(self, model: HearthstoneModel, buffer: ReplayBuffer, num_workers: int = 4,
+                 batch_inference: bool = False, batch_size: int = 32, batch_timeout_ms: int = 10):
         self.model = model
         self.buffer = buffer
         self.encoder = FeatureEncoder()
         self.num_workers = num_workers
+        
+        # Batch inference settings
+        self.batch_inference_enabled = batch_inference
+        self.inference_server = None
+        if batch_inference:
+            self.inference_server = BatchInferenceServer(
+                model,
+                max_batch_size=batch_size,
+                timeout_ms=batch_timeout_ms
+            )
+            self.inference_server.start()
+            print(f"[BatchInference] Enabled with batch_size={batch_size}, timeout={batch_timeout_ms}ms")
+    
+    def shutdown(self):
+        """Clean up resources."""
+        if self.inference_server:
+            self.inference_server.stop()
+            stats = self.inference_server.get_stats()
+            print(f"[BatchInference] Stats: {stats['total_batches']} batches, avg size: {stats['avg_batch_size']:.1f}")
         
     def collect_games(self, num_games: int, mcts_sims: int = 25, verbose: bool = False):
         """Run self-play games using multiprocessing."""
@@ -111,7 +132,8 @@ class DataCollector:
                         self.model,
                         mcts_sims,
                         i,
-                        verbose
+                        verbose,
+                        self.inference_server
                     )
                     self.buffer.add_game(trajectory, winner)
                     winners[winner] = winners.get(winner, 0) + 1
@@ -135,7 +157,8 @@ class DataCollector:
                         self.model,
                         mcts_sims,
                         i,
-                        verbose
+                        verbose,
+                        self.inference_server
                     ))
                 
                 # Collect results INSIDE the with block

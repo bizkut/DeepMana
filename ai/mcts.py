@@ -33,12 +33,13 @@ class MCTS:
     Monte Carlo Tree Search implementation guided by Neural Network.
     """
     
-    def __init__(self, model, encoder, game_env, c_puct=1.0, num_simulations=50):
+    def __init__(self, model, encoder, game_env, c_puct=1.0, num_simulations=50, inference_server=None):
         self.model = model
         self.encoder = encoder
         self.game_env = game_env # Reference for cloning
         self.c_puct = c_puct
         self.num_simulations = num_simulations
+        self.inference_server = inference_server  # Optional batch inference server
         
         # Pre-instantiate a wrapper to reuse for logic checks (avoids repeated DB loads)
         self._temp_wrapper = HearthstoneGame()
@@ -138,12 +139,17 @@ class MCTS:
         device = next(self.model.parameters()).device
         tensor = self.encoder.encode(state_data).unsqueeze(0).to(device)
         
-        # Predict
-        self.model.eval()
-        with torch.no_grad():
-            policy_probs, value = self.model(tensor)
-            
-        value = value.item()
+        # Predict - use batch inference server if available
+        if self.inference_server:
+            policy_probs, value = self.inference_server.infer(tensor)
+            # policy_probs is already 1D from batch server
+            if policy_probs.dim() == 1:
+                policy_probs = policy_probs.unsqueeze(0)
+        else:
+            self.model.eval()
+            with torch.no_grad():
+                policy_probs, value = self.model(tensor)
+            value = value.item()
         
         # Get valid actions from simulator (Expensive call, do it once per expansion)
         valid_actions = self._temp_wrapper.get_valid_actions()
