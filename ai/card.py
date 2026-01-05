@@ -130,30 +130,43 @@ class CardInstance:
             card_type = CardType.HERO
         else:
             card_type = CardType.MINION
-            
+        
+        # Get card data with fallbacks for missing data
+        data = getattr(sim_card, 'data', None)
+        
+        # Name: prefer sim_card.name (set by parser), fallback to data.name
+        name = getattr(sim_card, 'name', None) or (data.name if data and hasattr(data, 'name') else "Unknown Card")
+        
+        # Cost: prefer data.cost, fallback to sim_card.cost
+        base_cost = (data.cost if data and hasattr(data, 'cost') else None) or getattr(sim_card, 'cost', 0)
+        
+        # Attack/Health: prefer data, fallback to sim_card attributes
+        base_attack = (data.attack if data and hasattr(data, 'attack') else None) or getattr(sim_card, 'attack', None)
+        base_health = (data.health if data and hasattr(data, 'health') else None) or getattr(sim_card, 'health', None)
+        
         info = CardInfo(
-            card_id=sim_card.card_id,
-            name=sim_card.name,
+            card_id=getattr(sim_card, 'card_id', ''),
+            name=name,
             card_type=card_type,
-            cost=sim_card.data.cost,
-            attack=sim_card.data.attack if hasattr(sim_card.data, 'attack') else None,
-            health=sim_card.data.health if hasattr(sim_card.data, 'health') else None,
-            text=sim_card.data.text,
+            cost=base_cost,
+            attack=base_attack,
+            health=base_health,
+            text=data.text if data and hasattr(data, 'text') else "",
         )
         
         return cls(
             info=info,
-            current_cost=sim_card.cost,
-            current_attack=sim_card.attack if hasattr(sim_card, 'attack') else None,
-            current_health=sim_card.health if hasattr(sim_card, 'health') else None,
-            max_health=sim_card.max_health if hasattr(sim_card, 'max_health') else None,
-            can_attack=sim_card.can_attack(),
+            current_cost=getattr(sim_card, 'cost', base_cost),
+            current_attack=getattr(sim_card, 'attack', base_attack),
+            current_health=getattr(sim_card, 'health', base_health),
+            max_health=getattr(sim_card, 'max_health', base_health),
+            can_attack=sim_card.can_attack() if hasattr(sim_card, 'can_attack') else False,
             is_exhausted=getattr(sim_card, 'exhausted', True),
-            has_taunt=sim_card.taunt,
-            has_divine_shield=sim_card.divine_shield,
-            has_stealth=sim_card.stealth,
-            is_frozen=sim_card.frozen,
-            zone_position=sim_card.zone_position
+            has_taunt=getattr(sim_card, 'taunt', False),
+            has_divine_shield=getattr(sim_card, 'divine_shield', False),
+            has_stealth=getattr(sim_card, 'stealth', False),
+            is_frozen=getattr(sim_card, 'frozen', False),
+            zone_position=getattr(sim_card, 'zone_position', 0)
         )
 
     @classmethod
