@@ -31,14 +31,10 @@ class AIBrain:
         self.input_dim = input_dim
         self.action_dim = action_dim
         
-        # Device selection with MPS support for Apple Silicon
+        # Device selection using centralized utility (respects config settings)
         if use_gpu:
-            if torch.cuda.is_available():
-                self.device = torch.device("cuda")
-            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                self.device = torch.device("mps")
-            else:
-                self.device = torch.device("cpu")
+            from ai.device import get_compute_device
+            self.device = get_compute_device()
         else:
             self.device = torch.device("cpu")
         

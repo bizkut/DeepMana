@@ -23,6 +23,7 @@ from ai.model import HearthstoneModel
 from ai.replay_buffer import ReplayBuffer
 from ai.encoder import FeatureEncoder
 from ai.actions import ACTION_SPACE_SIZE
+from ai.device import get_compute_device, get_device_name
 from training.data_collector import DataCollector
 
 class Trainer:
@@ -66,8 +67,8 @@ class Trainer:
         self.mcts_sims = config_mcts 
         self.buffer_capacity = 100000
         
-        # Device selection with MPS support for Apple Silicon
-        self.device = self._select_device(config_device)
+        # Device selection using centralized utility
+        self.device = get_compute_device()
         
         # Components
         self.model = HearthstoneModel(self.input_dim, self.action_dim).to(self.device)
@@ -83,40 +84,10 @@ class Trainer:
         self.writer = SummaryWriter(log_dir=self.run_dir)
         print(f"TensorBoard: tensorboard --logdir={self.run_dir}")
         
-        if torch.cuda.is_available() and self.device.type == "cuda":
-            print(f"[OK] CUDA Detected: {torch.cuda.get_device_name(0)}")
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() and self.device.type == "mps":
-            print(f"[OK] MPS (Apple Silicon GPU) Detected")
-        else:
-            print("[INFO] Using CPU for training.")
-            
+        print(f"[OK] Compute Device: {get_device_name(self.device)}")
         print(f"TensorBoard: tensorboard --logdir=runs")
     
-    def _select_device(self, config_device: str) -> torch.device:
-        """Select compute device based on config and availability."""
-        config_device = config_device.lower()
-        
-        if config_device == "cpu":
-            return torch.device("cpu")
-        elif config_device == "cuda":
-            if torch.cuda.is_available():
-                return torch.device("cuda")
-            print("[WARNING] CUDA requested but not available, falling back to CPU")
-            return torch.device("cpu")
-        elif config_device == "mps":
-            if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                return torch.device("mps")
-            print("[WARNING] MPS requested but not available, falling back to CPU")
-            return torch.device("cpu")
-        else:  # "auto" or any other value
-            # Priority: CUDA > MPS > CPU
-            if torch.cuda.is_available():
-                return torch.device("cuda")
-            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                return torch.device("mps")
-            else:
-                return torch.device("cpu")
-        
+    
     def train(self, iteration_callback=None):
         """Main training loop."""
         start_iter = self.load_latest_checkpoint()
