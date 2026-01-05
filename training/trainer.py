@@ -244,6 +244,7 @@ class Trainer:
         
     def save_checkpoint(self, filename: str):
         """Save model."""
+        import shutil
         path = os.path.join("models", filename)
         os.makedirs("models", exist_ok=True)
         torch.save({
@@ -251,6 +252,11 @@ class Trainer:
             'optimizer_state_dict': self.optimizer.state_dict(),
         }, path)
         print(f"Saved model to {path}")
+        
+        # Also copy to latest_model.pt for Live Assistant
+        latest_path = os.path.join("models", "latest_model.pt")
+        shutil.copy(path, latest_path)
+        print(f"Updated latest_model.pt")
         
     def load_latest_checkpoint(self) -> int:
         """Loads the most recent checkpoint and returns the next iteration number."""
