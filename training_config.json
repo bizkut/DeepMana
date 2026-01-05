@@ -1,5 +1,5 @@
 {
-    "workers": 12,
+    "workers": 24,
     "batch_size": 256,
     "mcts_sims": 15,
     "games_per_iter": 100,

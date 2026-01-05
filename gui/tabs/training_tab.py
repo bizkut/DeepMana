@@ -65,7 +65,10 @@ class TrainingWorker(QThread):
     
     def request_stop(self):
         if self.trainer:
+            print("[GUI] Stop requested by user...")
             self.trainer.stop_flag = True
+            if hasattr(self.trainer, 'collector') and self.trainer.collector:
+                self.trainer.collector.request_stop()
 
 
 class TrainingTab(QWidget):
