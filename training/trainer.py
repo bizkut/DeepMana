@@ -123,7 +123,8 @@ class Trainer:
         
         for iteration in range(start_iter, self.num_iterations):
             if self.stop_flag:
-                print(">>> User requested stop. HALTING after current game batch...")
+                print(">>> User requested stop. HALTING training...")
+                self.collector.request_stop()  # Propagate to data collector
                 break
                 
             print(f"\n=== Iteration {iteration + 1}/{self.num_iterations} ===")
@@ -146,6 +147,11 @@ class Trainer:
             if not self.collector.batch_inference_enabled:
                 self.model.to("cpu")
             winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
+            
+            # Check if stop was requested during collection
+            if self.stop_flag or self.collector.stop_flag:
+                print(">>> Stop requested. Skipping training phase...")
+                break
             
             # Log batch inference stats
             if self.collector.batch_inference_enabled and self.collector.inference_server:

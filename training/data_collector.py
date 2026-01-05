@@ -84,6 +84,7 @@ class DataCollector:
         self.buffer = buffer
         self.encoder = FeatureEncoder()
         self.num_workers = num_workers
+        self.stop_flag = False  # Stop flag for graceful shutdown
         
         # Batch inference settings
         self.batch_inference_enabled = batch_inference
@@ -97,8 +98,14 @@ class DataCollector:
             self.inference_server.start()
             print(f"[BatchInference] Enabled with batch_size={batch_size}, timeout={batch_timeout_ms}ms")
     
+    def request_stop(self):
+        """Request graceful stop of game collection."""
+        self.stop_flag = True
+        print("[DataCollector] Stop requested, finishing current games...")
+    
     def shutdown(self):
         """Clean up resources."""
+        self.stop_flag = True
         if self.inference_server:
             self.inference_server.stop()
             stats = self.inference_server.get_stats()
@@ -163,8 +170,17 @@ class DataCollector:
                 
                 # Collect results INSIDE the with block
                 for future in as_completed(futures):
+                    # Check stop flag
+                    if self.stop_flag:
+                        remaining = sum(1 for f in futures if not f.done())
+                        print(f"[STOPPING] Cancelling {remaining} remaining games...")
+                        # Cancel pending futures
+                        for f in futures:
+                            f.cancel()
+                        break
+                    
                     try:
-                        trajectory, winner = future.result()
+                        trajectory, winner = future.result(timeout=60)  # 60s timeout per game
                         self.buffer.add_game(trajectory, winner)
                         winners[winner] = winners.get(winner, 0) + 1
                         

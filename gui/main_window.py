@@ -57,6 +57,8 @@ class TrainingThread(QThread):
     def stop(self):
         if self.trainer:
             self.trainer.stop_flag = True
+            if hasattr(self.trainer, 'collector') and self.trainer.collector:
+                self.trainer.collector.request_stop()
 
 class SideBarButton(QPushButton):
     def __init__(self, icon_name, text, parent=None):
