@@ -12,5 +12,6 @@ def battlecry(game, source, target):
 
     # Give +2/+0 and keywords
     if target:
+        pass
         
 target._attack += 2

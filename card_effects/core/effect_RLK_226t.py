@@ -1,7 +1,6 @@
 """Effect for Risen Ymirjar (RLK_226t).
 
-Card Text: <b>Taunt</b>
-<i>Doesn't leave a <b>Corpse</b>.</i>
+Card Text: <b>Taunt</b> <i>Doesn't leave a <b>Corpse</b>.</i>
 """
 
 from simulator.enums import CardType
@@ -9,7 +8,4 @@ from simulator.enums import CardType
 def battlecry(game, source, target):
     player = source.controller
     opponent = player.opponent
-
-    # Effect: <b>Taunt</b>
-<i>Doesn't leave a <b>Corpse</b>.</i>...
     pass
