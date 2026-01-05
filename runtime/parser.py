@@ -260,6 +260,20 @@ class LogParser:
         if card_id:
             # Known card - create real entity
             entity = self._get_or_create_entity(entity_id, entity_data)
+            
+            # Load card data from database and update entity attributes
+            if entity and hasattr(entity, 'card_id'):
+                entity.card_id = card_id
+                card_data = CardDatabase.get_card(card_id)
+                if card_data:
+                    entity.data = card_data
+                    entity.name = getattr(card_data, 'name', card_id)
+                    entity.cost = getattr(card_data, 'cost', 0)
+                    if hasattr(card_data, 'attack'):
+                        entity.attack = card_data.attack
+                    if hasattr(card_data, 'health'):
+                        entity.health = card_data.health
+                        entity.max_health = card_data.health
         else:
             # Hidden card (in deck) - create placeholder that will be revealed later
             entity = self._create_placeholder_entity(entity_id, player_id)
