@@ -125,6 +125,9 @@ class MainWindow(QMainWindow):
 
     def append_log(self, text):
         self.console.append(text)
+        # Auto-scroll to show latest logs
+        scrollbar = self.console.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def update_stats(self, stats):
         self.training_page.update_data(stats)
