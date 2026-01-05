@@ -55,6 +55,10 @@ class LogParser:
         Dynamically bind a name to a player if not already known.
         Useful when joining mid-game (history skipped) and we see 'TAG_CHANGE Entity=Name'.
         """
+        # 0. Safety: Ignore known non-player entities
+        if name_str in ["GameEntity", "The Coin", "UNKNOWN ENTITY"]:
+             return None
+             
         # 1. Check if we already know this name
         for p in self.game.players:
             if p.name == name_str:
@@ -84,7 +88,8 @@ class LogParser:
         line = line.strip()
         
         # Filter non-power lines
-        if "DebugPrintPower" not in line and "PowerTaskList" not in line:
+        # Allow DebugPrintPower, PowerTaskList, and DebugPrintGame (for player names)
+        if "DebugPrintPower" not in line and "PowerTaskList" not in line and "DebugPrintGame" not in line:
             return False
 
         state_changed = False
@@ -386,6 +391,11 @@ class LogParser:
                         player.mana_crystals = int(value)
                         self._recalculate_mana(player)
                         state_changed = True
+                        
+                        # Exit mulligan when first mana is received
+                        if player.mana_crystals > 0 and self.in_mulligan:
+                            self.in_mulligan = False
+                            self.mulligan_complete = True
                     except ValueError:
                         pass
                         
