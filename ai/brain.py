@@ -191,8 +191,14 @@ class AIBrain:
              mask[17] = 1.0
              
         # 3. Hero Power (Action 18)
-        if p.hero_power and p.hero_power.is_usable and (p.hero_power.cost <= p.mana):
-            mask[18] = 1.0
+        if p.hero_power:
+            hp_cost = p.hero_power.cost
+            hp_usable = p.hero_power.is_usable
+            if hp_usable and (hp_cost <= p.mana):
+                mask[18] = 1.0
+            # Debug: show why hero power was enabled/disabled
+            if hp_usable:
+                print(f"[Brain] Hero Power: cost={hp_cost}, mana={p.mana}, allowed={hp_cost <= p.mana}")
             
         # 4. End Turn (Action 19)
         mask[19] = 1.0
