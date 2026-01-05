@@ -45,9 +45,6 @@ class Trainer:
         config_batch = 64
         config_mcts = 25
         config_games = 40
-        config_batch_inference = False
-        config_inference_batch_size = 32
-        config_inference_timeout = 10
         
         # Load from JSON if available (GUI Settings)
         config_device = "auto"  # Default: auto-detect
@@ -61,13 +58,7 @@ class Trainer:
                     config_mcts = data.get("mcts_sims", 25)
                     config_games = data.get("games_per_iter", 40)
                     config_device = data.get("device", "auto")
-                    # Batch inference settings
-                    config_batch_inference = data.get("batch_inference", False)
-                    config_inference_batch_size = data.get("inference_batch_size", 32)
-                    config_inference_timeout = data.get("inference_timeout_ms", 10)
                     print(f"Loaded config: Workers={config_workers}, Batch={config_batch}, MCTS={config_mcts}, Games={config_games}, Device={config_device}")
-                    if config_batch_inference:
-                        print(f"Batch Inference: Enabled (size={config_inference_batch_size}, timeout={config_inference_timeout}ms)")
         except:
             pass
             
@@ -87,10 +78,7 @@ class Trainer:
         self.collector = DataCollector(
             self.model, 
             self.buffer, 
-            num_workers=config_workers,
-            batch_inference=config_batch_inference,
-            batch_size=config_inference_batch_size,
-            batch_timeout_ms=config_inference_timeout
+            num_workers=config_workers
         )
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.stop_flag = False
@@ -143,22 +131,13 @@ class Trainer:
             
             # 1. Self-Play
             self.model.eval() # Collect in eval mode
-            # When batch inference is disabled, move to CPU for thread safety (old behavior)
-            if not self.collector.batch_inference_enabled:
-                self.model.to("cpu")
+            self.model.to("cpu")  # Move to CPU for thread safety (threads share model)
             winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
             
             # Check if stop was requested during collection
             if self.stop_flag or self.collector.stop_flag:
                 print(">>> Stop requested. Skipping training phase...")
                 break
-            
-            # Log batch inference stats
-            if self.collector.batch_inference_enabled and self.collector.inference_server:
-                stats = self.collector.inference_server.get_stats()
-                print(f"  [BatchInference] {stats['total_batches']} batches, avg size: {stats['avg_batch_size']:.1f}")
-                self.writer.add_scalar("BatchInference/AvgBatchSize", stats['avg_batch_size'], iteration)
-                self.writer.add_scalar("BatchInference/TotalBatches", stats['total_batches'], iteration)
             
             # Log winner stats to TensorBoard
             self.writer.add_scalar("Games/Winners_Draw", winners.get(0, 0), iteration)

@@ -1,10 +1,10 @@
 {
     "workers": 24,
     "batch_size": 256,
-    "mcts_sims": 15,
+    "mcts_sims": 10,
     "games_per_iter": 100,
     "device": "auto",
-    "batch_inference": true,
+    "batch_inference": false,
     "inference_batch_size": 128,
     "inference_timeout_ms": 10
 }

@@ -62,37 +62,8 @@ class SettingsTab(QWidget):
         form_layout.addRow(self.create_label("MCTS SIMULATIONS", "Thinking steps per decision during games"), self.spin_mcts)
         form_layout.addRow(self.create_label("GAMES PER ITERATION", "Self-play games per training cycle"), self.spin_games)
         
+        
         self.layout.addWidget(card)
-        
-        self.layout.addSpacing(20)
-        
-        # Batch Inference Card
-        batch_card = QFrame()
-        batch_card.setObjectName("dash_card")
-        batch_layout = QFormLayout(batch_card)
-        batch_layout.setContentsMargins(30, 30, 30, 30)
-        batch_layout.setSpacing(25)
-        batch_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        
-        # Batch Inference Toggle
-        self.check_batch_inference = QCheckBox("Enable Batch Inference")
-        self.check_batch_inference.setStyleSheet("color: #ffffff; font-size: 14px;")
-        
-        self.spin_inference_batch = QSpinBox()
-        self.spin_inference_batch.setRange(8, 128)
-        self.spin_inference_batch.setValue(32)
-        self.spin_inference_batch.setSingleStep(8)
-        
-        self.spin_inference_timeout = QSpinBox()
-        self.spin_inference_timeout.setRange(5, 100)
-        self.spin_inference_timeout.setValue(10)
-        self.spin_inference_timeout.setSuffix(" ms")
-        
-        batch_layout.addRow(self.create_label("BATCH INFERENCE", "Batch neural network calls for faster training"), self.check_batch_inference)
-        batch_layout.addRow(self.create_label("INFERENCE BATCH SIZE", "Max states to batch together"), self.spin_inference_batch)
-        batch_layout.addRow(self.create_label("BATCH TIMEOUT", "Max wait time before processing partial batch"), self.spin_inference_timeout)
-        
-        self.layout.addWidget(batch_card)
         
         self.layout.addSpacing(20)
         
@@ -134,10 +105,6 @@ class SettingsTab(QWidget):
                     device_map = {"auto": 0, "cpu": 1, "cuda": 2, "mps": 3}
                     device = data.get("device", "auto")
                     self.combo_device.setCurrentIndex(device_map.get(device, 0))
-                    # Batch inference settings
-                    self.check_batch_inference.setChecked(data.get("batch_inference", False))
-                    self.spin_inference_batch.setValue(data.get("inference_batch_size", 32))
-                    self.spin_inference_timeout.setValue(data.get("inference_timeout_ms", 10))
             except:
                 pass
 
@@ -158,11 +125,7 @@ class SettingsTab(QWidget):
             "batch_size": self.spin_batch.value(),
             "mcts_sims": self.spin_mcts.value(),
             "games_per_iter": self.spin_games.value(),
-            "device": device_options[self.combo_device.currentIndex()],
-            # Batch inference settings
-            "batch_inference": self.check_batch_inference.isChecked(),
-            "inference_batch_size": self.spin_inference_batch.value(),
-            "inference_timeout_ms": self.spin_inference_timeout.value()
+            "device": device_options[self.combo_device.currentIndex()]
         })
         
         with open(CONFIG_FILE, 'w') as f:
