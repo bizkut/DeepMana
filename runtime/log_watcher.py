@@ -13,6 +13,8 @@ class LogWatcher:
         r"C:\Program Files (x86)\Hearthstone\Logs",
         r"D:\Jeux\Hearthstone\Logs",
         os.path.expandvars(r"%LocalAppData%\Blizzard\Hearthstone\Logs"),
+        "/Applications/Hearthstone/Logs",
+        os.path.expanduser("~/Library/Preferences/Blizzard/Hearthstone/Logs"),
     ]
 
     def __init__(self, callback: Callable[[str], None], skip_history: bool = False):
