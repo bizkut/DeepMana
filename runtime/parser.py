@@ -50,6 +50,35 @@ class LogParser:
         # Track current block for context
         self.current_block = None
         
+    def _resolve_player_name(self, name_str: str) -> Optional[Player]:
+        """
+        Dynamically bind a name to a player if not already known.
+        Useful when joining mid-game (history skipped) and we see 'TAG_CHANGE Entity=Name'.
+        """
+        # 1. Check if we already know this name
+        for p in self.game.players:
+            if p.name == name_str:
+                return p
+                
+        # 2. Check if we can bind it to a default player
+        # We need a robust way to decide if this is P1 or P2.
+        # But if we have NO info, first come first served is better than nothing.
+        # Player 1 is usually the local player in many contexts, or at least the first initialized.
+        
+        # Bind to Player 1 if it's "Player 1" (default)
+        if self.game.players[0].name == "Player 1":
+            print(f"[Parser] Binding unknown name '{name_str}' to Player 1")
+            self.game.players[0].name = name_str
+            return self.game.players[0]
+            
+        # Bind to Player 2 if it's "Opponent" (default)
+        if len(self.game.players) > 1 and self.game.players[1].name == "Opponent":
+            print(f"[Parser] Binding unknown name '{name_str}' to Player 2")
+            self.game.players[1].name = name_str
+            return self.game.players[1]
+            
+        return None
+
     def parse_line(self, line: str) -> bool:
         """Parse a single log line. Returns True if state changed."""
         line = line.strip()
@@ -492,13 +521,21 @@ class LogParser:
             return result
         
         # Case 2: Player name (e.g., "HippieRogue#1926")
-        # Check if entity_str matches a known player name
-        for i, player in enumerate(self.game.players):
-            if player.name and player.name == entity_str:
-                # Player 1 = entity 2, Player 2 = entity 3
-                result['id'] = i + 2
-                result['player'] = i + 1
-                return result
+        # Try to resolve to known player OR bind strictly new name
+        # This handles dynamic binding of names if we joined mid-game
+        # Only try if string looks like a name (not containing brackets or signs effectively)
+        # Simple heuristic: if it has no '=', it's likely a name (or a very weird string)
+        if '=' not in entity_str and '[' not in entity_str:
+            resolved_player = self._resolve_player_name(entity_str)
+            if resolved_player:
+                 # Find index
+                 i = self.game.players.index(resolved_player)
+                 # Map to Entity ID (P1=2, P2=3) 
+                 # Note: This assumes P1 is always Entity 2. In some modes/logs this varies,
+                 # but for 1v1 Standard it's safe enough.
+                 result['id'] = i + 2
+                 result['player'] = i + 1
+                 return result
         
         # Case 3: Extract ID from anywhere in the string using regex
         # This handles nested brackets because we search the WHOLE string for id=X
