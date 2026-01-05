@@ -290,6 +290,12 @@ class LogParser:
                 try:
                     new_zone = Zone[zone_str]
                     self._move_to_zone(entity, new_zone)
+                    
+                    # LOCAL PLAYER DETECTION: Cards going to HAND with known cardId = local player
+                    if new_zone == Zone.HAND and card_id and self.local_player_id is None:
+                        self.local_player_id = player_id
+                        print(f"[Parser] Detected local player = Player {player_id} (visible card in hand)")
+                    
                     return True
                 except KeyError:
                     pass
