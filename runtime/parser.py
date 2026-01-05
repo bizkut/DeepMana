@@ -60,8 +60,13 @@ class LogParser:
              return None
              
         # 1. Check if we already know this name
-        for p in self.game.players:
+        for idx, p in enumerate(self.game.players):
             if p.name == name_str:
+                # Check if this is the pending local player name
+                if hasattr(self, '_pending_local_player_name') and self._pending_local_player_name == name_str:
+                    self.local_player_id = idx + 1
+                    print(f"[Parser] Matched pending local player name '{name_str}' -> Player {self.local_player_id}")
+                    delattr(self, '_pending_local_player_name')
                 return p
                 
         # 2. Check if we can bind it to a default player
@@ -69,17 +74,27 @@ class LogParser:
         # But if we have NO info, first come first served is better than nothing.
         # Player 1 is usually the local player in many contexts, or at least the first initialized.
         
+        bound_player_idx = None
+        
         # Bind to Player 1 if it's "Player 1" (default)
         if self.game.players[0].name == "Player 1":
             print(f"[Parser] Binding unknown name '{name_str}' to Player 1")
             self.game.players[0].name = name_str
-            return self.game.players[0]
+            bound_player_idx = 0
             
         # Bind to Player 2 if it's "Opponent" (default)
-        if len(self.game.players) > 1 and self.game.players[1].name == "Opponent":
+        elif len(self.game.players) > 1 and self.game.players[1].name == "Opponent":
             print(f"[Parser] Binding unknown name '{name_str}' to Player 2")
             self.game.players[1].name = name_str
-            return self.game.players[1]
+            bound_player_idx = 1
+        
+        # Check if this is the pending local player name
+        if bound_player_idx is not None:
+            if hasattr(self, '_pending_local_player_name') and self._pending_local_player_name == name_str:
+                self.local_player_id = bound_player_idx + 1
+                print(f"[Parser] Set local_player_id = {self.local_player_id} (matched pending name '{name_str}')")
+                delattr(self, '_pending_local_player_name')
+            return self.game.players[bound_player_idx]
             
         return None
 
@@ -115,22 +130,20 @@ class LogParser:
         if "tag=MULLIGAN_STATE" in line and "value=INPUT" in line:
             # Player is in mulligan -> they are deciding cards
             self.in_mulligan = True
+            
+            # Try to extract player ID from entity format: Entity=[...player=X]
             entity_match = re.search(r"Entity=\[.*player=(\d+)", line)
             if entity_match:
                 self.local_player_id = int(entity_match.group(1))
+                print(f"[Parser] Detected local player = Player {self.local_player_id} (from MULLIGAN_STATE)")
             elif self.local_player_id is None:
-                # Fallback: first player to enter mulligan is likely local
                 # Try alternative format: Entity=PlayerName 
                 name_match = re.search(r"Entity=([^\s\[]+)", line)
                 if name_match:
                     player_name = name_match.group(1)
-                    # Find which player has this name
-                    for i, p in enumerate(self.game.players):
-                        if p.name == player_name:
-                            self.local_player_id = i + 1
-                            break
-                if self.local_player_id is None:
-                    self.local_player_id = 1  # Default to player 1
+                    # Store name for later binding
+                    self._pending_local_player_name = player_name
+                    print(f"[Parser] MULLIGAN_STATE for name '{player_name}' - will set local_player_id when bound")
         
         # === TAG CHANGES ===
         tag_match = self.regex_tag.search(line)
