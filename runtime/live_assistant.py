@@ -135,6 +135,11 @@ class AssistantWorker(QThread):
             self.status_signal.emit("ANALYZING...")
             self.info_signal.emit("Detecting players...")
             return
+        
+        # === MULLIGAN PHASE ===
+        if self.parser.in_mulligan:
+            self._suggest_mulligan(local_player)
+            return
             
         # Update mana display
         self._update_mana()
@@ -217,6 +222,60 @@ class AssistantWorker(QThread):
                         end_pos = self.geometry.get_hero_pos(is_opponent=True)
                         
                 self.arrow_signal.emit(start_pos, end_pos)
+
+    def _suggest_mulligan(self, local_player):
+        """Suggest which cards to keep/mulligan using heuristics."""
+        self.status_signal.emit("MULLIGAN")
+        
+        keep_cards = []
+        mulligan_cards = []
+        
+        for i, card in enumerate(local_player.hand):
+            card_name = "Unknown"
+            card_cost = 99
+            
+            if hasattr(card, 'data') and card.data:
+                card_name = getattr(card.data, 'name', 'Unknown')
+            if hasattr(card, 'cost'):
+                card_cost = card.cost
+            
+            # Heuristic: Keep cards with cost <= 3
+            # Keep "The Coin" always
+            should_keep = False
+            if "coin" in card_name.lower():
+                should_keep = True
+            elif card_cost <= 3:
+                should_keep = True
+            
+            if should_keep:
+                keep_cards.append((i, card_name, card_cost))
+            else:
+                mulligan_cards.append((i, card_name, card_cost))
+        
+        # Build action queue for display
+        actions = []
+        for idx, name, cost in keep_cards:
+            actions.append(("KEEP", f"Keep {name}", f"Cost: {cost} (Low)"))
+        for idx, name, cost in mulligan_cards:
+            actions.append(("MULLIGAN", f"Mulligan {name}", f"Cost: {cost} (Too high)"))
+        
+        self.action_queue_signal.emit(actions)
+        
+        # Update info
+        keep_count = len(keep_cards)
+        mulligan_count = len(mulligan_cards)
+        self.info_signal.emit(f"Keep {keep_count}, Mulligan {mulligan_count}")
+        
+        # Highlight first card to mulligan (if any)
+        if mulligan_cards:
+            first_mulligan_idx = mulligan_cards[0][0]
+            hand_size = len(local_player.hand)
+            card_pos = self.geometry.get_hand_card_pos(first_mulligan_idx, hand_size)
+            self.highlight_signal.emit(card_pos)
+        else:
+            self.highlight_signal.emit(None)
+            
+        print(f"[MULLIGAN] Keep: {[k[1] for k in keep_cards]}, Mulligan: {[m[1] for m in mulligan_cards]}")
 
     def _suggest_heuristic(self, local_player):
         """Build a full turn plan using simple heuristics."""

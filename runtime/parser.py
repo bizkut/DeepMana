@@ -30,6 +30,7 @@ class LogParser:
         
         # Game Phase
         self.in_game = False
+        self.in_mulligan = False  # True during mulligan card selection
         self.mulligan_complete = False
         self.current_player_id: Optional[int] = None  # 1 or 2 (whose turn)
         
@@ -75,10 +76,11 @@ class LogParser:
             if player_id <= len(self.game.players):
                 self.game.players[player_id - 1].name = player_name
             
-        # === LOCAL PLAYER DETECTION ===
+        # === LOCAL PLAYER DETECTION + MULLIGAN STATE ===
         # The first CURRENT_PLAYER=1 after CREATE_GAME is usually the local player
         if "tag=MULLIGAN_STATE" in line and "value=INPUT" in line:
-            # This player is in mulligan -> they are deciding -> likely local
+            # Player is in mulligan -> they are deciding cards
+            self.in_mulligan = True
             entity_match = re.search(r"Entity=\[.*player=(\d+)", line)
             if entity_match:
                 self.local_player_id = int(entity_match.group(1))
@@ -169,6 +171,7 @@ class LogParser:
         self.entity_map.clear()
         self.hero_entities.clear()
         self.local_player_id = None
+        self.in_mulligan = False
         self.mulligan_complete = False
         self.current_player_id = None
         
@@ -370,6 +373,7 @@ class LogParser:
         elif tag == "STEP":
             # MAIN_READY = Mulligan complete, main game starts
             if value == "MAIN_READY" or value == "MAIN_ACTION":
+                self.in_mulligan = False
                 self.mulligan_complete = True
                 state_changed = True
             # MAIN_START = Beginning of a turn
