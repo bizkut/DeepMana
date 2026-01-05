@@ -167,6 +167,7 @@ class TrainingTab(QWidget):
     def start_training(self):
         self.worker = TrainingWorker()
         self.worker.stats_signal.connect(self.update_data)
+        self.worker.stats_signal.connect(self._forward_to_analytics)  # Forward to analytics
         self.worker.status_signal.connect(self.update_status)  # New connection
         self.worker.finished.connect(self.on_training_finished)
         self.worker.start()
@@ -201,11 +202,19 @@ class TrainingTab(QWidget):
         iteration = stats.get("iteration", 0)
         winners = stats.get("winners", {})
         total = sum(winners.values())
-        wr = (winners.get(2, 0) / total * 100) if total > 0 else 0
+        # Winrate = non-draw games (P1 or P2 wins) / total
+        wins = winners.get(1, 0) + winners.get(2, 0)
+        wr = (wins / total * 100) if total > 0 else 0
         
         self.stat_iter.val_label.setText(str(iteration))
         self.stat_status.val_label.setText("LEARNING")
         self.stat_status.val_label.setStyleSheet("color: #0078d4; font-size: 28px; font-weight: 600;")
         self.stat_wr.val_label.setText(f"{wr:.1f}%")
         self.version_label.setText(f"PROCESSING ITERATION {iteration}")
+    
+    def _forward_to_analytics(self, stats):
+        """Forward stats to analytics tab via main window."""
+        main_window = self.window()
+        if hasattr(main_window, 'analytics_page'):
+            main_window.analytics_page.update_data(stats)
 
