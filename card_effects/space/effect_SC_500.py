@@ -1,24 +1,32 @@
 """Effect for Wayward Probe (SC_500).
 
-Card Text: [x]<b>Battlecry and Deathrattle:</b>
-Get a random
-<b>Starship Piece</b>.
+Card Text: Battlecry and Deathrattle: Get a random Starship Piece.
 """
 
-from simulator.enums import CardType
+import random
+
+# Starship Pieces from The Great Dark Beyond
+STARSHIP_PIECES = [
+    'SC_401', 'SC_402', 'SC_403', 'SC_404', 'SC_405',
+    'SC_406', 'SC_407', 'SC_408', 'SC_410', 'SC_411', 'SC_412'
+]
+
+
+def _get_starship_piece(game, player):
+    """Add a random Starship Piece to hand."""
+    from simulator.factory import create_card
+    
+    piece_id = random.choice(STARSHIP_PIECES)
+    piece = create_card(piece_id, game)
+    if piece:
+        player.add_to_hand(piece)
+
 
 def battlecry(game, source, target):
     player = source.controller
-    opponent = player.opponent
-
-    # Effect: [x]<b>Battlecry and Deathrattle:</b>
-Get a random
-<b>Starship Piece</b>....
-    pass
+    _get_starship_piece(game, player)
 
 
 def deathrattle(game, source):
     player = source.controller
-    opponent = player.opponent
-    # Deathrattle effect
-    pass  # TODO: Implement deathrattle portion
+    _get_starship_piece(game, player)
