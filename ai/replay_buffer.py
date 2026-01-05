@@ -22,9 +22,13 @@ class ReplayBuffer:
         self.capacity = capacity
         # We store tuples of (state_tensor, policy_probs, value_outcome)
         self.buffer: Deque[Tuple[torch.Tensor, np.ndarray, float]] = deque(maxlen=capacity)
-        
+    
     def add(self, state: torch.Tensor, policy_probs: np.ndarray, value: float):
         """Add a single step to the buffer."""
+        # Handle numpy arrays from multiprocess workers
+        if isinstance(state, np.ndarray):
+            state = torch.from_numpy(state).float()
+            
         # Ensure state is detached/cpu if it came from GPU
         if isinstance(state, torch.Tensor):
             state = state.detach().cpu()

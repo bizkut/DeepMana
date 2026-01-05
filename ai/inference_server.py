@@ -11,6 +11,7 @@ import multiprocessing as mp
 from multiprocessing import Queue
 from typing import Optional, Tuple
 import time
+import queue
 
 
 class InferenceServer:
@@ -86,8 +87,13 @@ class InferenceServer:
                 self.result_queues[worker_id].put((policy_np, policy_logits.shape, value_float))
                 self.total_requests += 1
                 
-            except Exception:
-                # Timeout or other error, continue
+            except queue.Empty:
+                # Normal timeout, continue
+                continue
+            except Exception as e:
+                print(f"[InferenceServer] ERROR: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
                 
     def get_queues(self) -> Tuple[Queue, dict]:
