@@ -16,7 +16,8 @@ env/
 
 # Models
 models/*.onnx
-models/*.pt
+models/checkpoint_iter_*.pt
+!models/latest_model.pt
 !models/.gitkeep
 
 # Data
