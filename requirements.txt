@@ -1,7 +1,7 @@
 # Core
 torch>=2.0.0
 pytorch-lightning>=2.0.0
-onnxruntime-gpu>=1.16.0
+onnxruntime>=1.16.0  # Use onnxruntime-gpu on Linux/Windows with NVIDIA GPU
 
 # Simulator
 fireplace @ git+https://github.com/jleclanche/fireplace.git
