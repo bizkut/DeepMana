@@ -147,7 +147,7 @@ class OverlayWindow(QMainWindow):
         
         # Action Queue Title
         queue_header = QHBoxLayout()
-        queue_title = QLabel("ACTIONS À EFFECTUER")
+        queue_title = QLabel("ACTIONS TO PERFORM")
         queue_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         queue_title.setStyleSheet("color: #8a8a8a; background: transparent; letter-spacing: 0.5px;")
         queue_header.addWidget(queue_title)
@@ -227,7 +227,7 @@ class OverlayWindow(QMainWindow):
             self.action_container.addWidget(item)
         
         if not actions:
-            no_action = QLabel("Aucune action disponible")
+            no_action = QLabel("No actions available")
             no_action.setFont(QFont("Segoe UI", 10))
             no_action.setStyleSheet("color: #8a8a8a; background: transparent; padding: 10px;")
             self.action_container.addWidget(no_action)
@@ -237,7 +237,7 @@ class OverlayWindow(QMainWindow):
         # Parse single action into queue
         if text:
             if "END TURN" in text.upper():
-                self.set_action_queue([("END", "Fin du tour", "Aucune autre action profitable")])
+                self.set_action_queue([("END", "End Turn", "No other profitable action")])
             else:
                 self.set_action_queue([(text.split(":")[0] if ":" in text else "ACTION", text, "")])
         
@@ -329,10 +329,10 @@ if __name__ == "__main__":
     
     # Demo action queue
     window.set_action_queue([
-        ("PLAY", "Jouer Murloc (2 mana)", "Main position 3 → Board"),
-        ("PLAY", "Jouer Sort de Feu (3 mana)", "Main position 1 → Cibler héros adverse"),
-        ("ATTACK", "Attaquer avec Golem → Face", "Serviteur 1 → Héros adverse"),
-        ("END", "Fin du tour", ""),
+        ("PLAY", "Play Murloc (2 mana)", "Hand position 3 → Board"),
+        ("PLAY", "Play Fire Spell (3 mana)", "Hand position 1 → Target enemy hero"),
+        ("ATTACK", "Attack with Golem → Face", "Minion 1 → Enemy hero"),
+        ("END", "End Turn", ""),
     ])
     window.update_mana(6, 10)
     

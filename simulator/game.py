@@ -341,61 +341,61 @@ class Game:
         # Build list of applicable gifts
         applicable_gifts = []
         
-        # 1. Terreur en éveil - +2/+2
-        applicable_gifts.append(("Terreur en éveil", lambda m: (
+        # 1. Waking Terror - +2/+2
+        applicable_gifts.append(("Waking Terror", lambda m: (
             setattr(m, '_attack', m._attack + 2),
             setattr(m, '_health', m._health + 2),
             setattr(m, '_max_health', m._max_health + 2)
         )))
         
-        # 2. Repos serein - Deathrattle: Draw
-        applicable_gifts.append(("Repos serein", lambda m: (
+        # 2. Peaceful Rest - Deathrattle: Draw
+        applicable_gifts.append(("Peaceful Rest", lambda m: (
             setattr(m, '_dark_gift_deathrattle', 'draw')
         )))
         
-        # 3. Courtes griffes - Cost -2, Attack -2 (only if attack > 2)
+        # 3. Short Claws - Cost -2, Attack -2 (only if attack > 2)
         if minion._attack > 2:
-            applicable_gifts.append(("Courtes griffes", lambda m: (
+            applicable_gifts.append(("Short Claws", lambda m: (
                 setattr(m, '_cost', max(0, m._cost - 2)),
                 setattr(m, '_attack', m._attack - 2)
             )))
         
-        # 4. Posture de défense - +1/+3 and Taunt
-        applicable_gifts.append(("Posture de défense", lambda m: (
+        # 4. Defensive Stance - +1/+3 and Taunt
+        applicable_gifts.append(("Defensive Stance", lambda m: (
             setattr(m, '_attack', m._attack + 1),
             setattr(m, '_health', m._health + 3),
             setattr(m, '_max_health', m._max_health + 3),
             setattr(m, '_taunt', True)
         )))
         
-        # 5. Cauchemar vivant - +1/+1 and Reborn
-        applicable_gifts.append(("Cauchemar vivant", lambda m: (
+        # 5. Living Nightmare - +1/+1 and Reborn
+        applicable_gifts.append(("Living Nightmare", lambda m: (
             setattr(m, '_attack', m._attack + 1),
             setattr(m, '_health', m._health + 1),
             setattr(m, '_max_health', m._max_health + 1),
             setattr(m, '_reborn', True)
         )))
         
-        # 6. Somnambule - Stealth
-        applicable_gifts.append(("Somnambule", lambda m: (
+        # 6. Sleepwalker - Stealth
+        applicable_gifts.append(("Sleepwalker", lambda m: (
             setattr(m, '_stealth', True)
         )))
         
-        # 7. Réveil brutal - Battlecries trigger twice (only if has battlecry)
+        # 7. Rude Awakening - Battlecries trigger twice (only if has battlecry)
         if minion.data.battlecry:
-            applicable_gifts.append(("Réveil brutal", lambda m: (
+            applicable_gifts.append(("Rude Awakening", lambda m: (
                 setattr(m, '_double_battlecry', True)
             )))
         
-        # 8. Beaux rêves - +2 Health and Lifesteal
-        applicable_gifts.append(("Beaux rêves", lambda m: (
+        # 8. Sweet Dreams - +2 Health and Lifesteal
+        applicable_gifts.append(("Sweet Dreams", lambda m: (
             setattr(m, '_health', m._health + 2),
             setattr(m, '_max_health', m._max_health + 2),
             setattr(m, '_lifesteal', True)
         )))
         
-        # 9. Horreur persistante - Deathrattle: summon 1/1
-        applicable_gifts.append(("Horreur persistante", lambda m: (
+        # 9. Lingering Horror - Deathrattle: summon 1/1
+        applicable_gifts.append(("Lingering Horror", lambda m: (
             setattr(m, '_dark_gift_deathrattle', 'summon_1_1')
         )))
         

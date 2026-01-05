@@ -294,59 +294,59 @@ class AssistantWorker(QThread):
         
         print(f"[HEURISTIC] Using local_player_id={self.parser.local_player_id}")
         
-        # Copie de la main pour simulation
+        # Copy hand for simulation
         simulated_hand = list(local_player.hand)
         
         
-        # 1. Jouer des cartes (Greedy: les plus chères d'abord)
-        # On filtre les cartes jouables
+        # 1. Play cards (Greedy: most expensive first)
+        # Filter playable cards
         playable_indices = []
         for i, card in enumerate(simulated_hand):
             if hasattr(card, 'cost'):
                 playable_indices.append(i)
         
-        # Tri par coût décroissant
+        # Sort by cost descending
         playable_indices.sort(key=lambda i: simulated_hand[i].cost, reverse=True)
         
         for i in playable_indices:
             card = simulated_hand[i]
             if card.cost <= current_mana:
-                card_name = getattr(card.data, 'name', 'Carte') if hasattr(card, 'data') and card.data else 'Carte'
+                card_name = getattr(card.data, 'name', 'Card') if hasattr(card, 'data') and card.data else 'Card'
                 
-                # Ajout à la file
+                # Add to queue
                 actions.append((
                     "PLAY", 
-                    f"Jouer {card_name}", 
-                    f"Position main: {i+1} | Coût: {card.cost}"
+                    f"Play {card_name}", 
+                    f"Hand position: {i+1} | Cost: {card.cost}"
                 ))
                 
-                # Simulation de coût
+                # Simulate mana cost
                 current_mana -= card.cost
                 
-                # Highlight la première carte à jouer
+                # Highlight first card to play
                 if len(actions) == 1:
                      hand_size = len(local_player.hand)
                      card_pos = self.geometry.get_hand_card_pos(i, hand_size)
                      self.highlight_signal.emit(card_pos)
-                     self.status_signal.emit(f"JOUER {card_name}")
+                     self.status_signal.emit(f"PLAY {card_name}")
 
-        # 2. Attaquer avec les serviteurs sur le plateau
-        # Note: on ne prend que ceux DÉJÀ sur le plateau (pas ceux qu'on vient de suggérer de jouer)
-        # Le parser doit être précis sur l'état du board.
+        # 2. Attack with minions on board
+        # Note: only take those ALREADY on board (not ones we just suggested to play)
+        # Parser must be accurate on board state.
         for i, minion in enumerate(local_player.board):
-            # Vérification basique (exhausted est souvent mis à jour par les logs)
+            # Basic check (exhausted is often updated by logs)
             can_attack = True
             if hasattr(minion, 'exhausted') and minion.exhausted:
                 can_attack = False
             if hasattr(minion, 'frozen') and minion.frozen:
                 can_attack = False
-            if hasattr(minion, 'can_attack') and not minion.can_attack(): # Si méthode dispo
+            if hasattr(minion, 'can_attack') and not minion.can_attack(): # If method available
                 can_attack = False
             
             if can_attack:
-                m_name = getattr(minion.data, 'name', 'Serviteur') if hasattr(minion, 'data') else 'Serviteur'
+                m_name = getattr(minion.data, 'name', 'Minion') if hasattr(minion, 'data') else 'Minion'
                 
-                # Trouver cible taunt (simulation)
+                # Find taunt target (simulation)
                 target_desc = "Face"
                 opponent = self.game.players[1] if self.parser.local_player_id in [None, 1] else self.game.players[0]
                 taunts = [m for m in opponent.board if hasattr(m, 'taunt') and m.taunt]
@@ -357,23 +357,23 @@ class AssistantWorker(QThread):
                 
                 actions.append((
                     "ATTACK",
-                    f"Attaquer avec {m_name}",
-                    f"Cible: {target_desc} (Position {i+1})"
+                    f"Attack with {m_name}",
+                    f"Target: {target_desc} (Position {i+1})"
                 ))
                 
-                # Si c'est la première action (pas de cartes jouées avant), on met la flèche
+                # If first action (no cards played before), show arrow
                 if len(actions) == 1:
                      start_pos = self.geometry.get_player_minion_pos(i, len(local_player.board))
                      if taunts:
-                         end_pos = self.geometry.get_opponent_minion_pos(0, len(opponent.board)) # Premier taunt
+                         end_pos = self.geometry.get_opponent_minion_pos(0, len(opponent.board)) # First taunt
                      else:
                          end_pos = self.geometry.get_hero_pos(is_opponent=True)
                      self.arrow_signal.emit(start_pos, end_pos)
 
-        # 3. Fin de tour
-        actions.append(("END", "Fin du tour", "Passer la main"))
-        if len(actions) == 1: # Seulement fin de tour
-             self.status_signal.emit("FIN DU TOUR")
+        # 3. End turn
+        actions.append(("END", "End Turn", "Pass the turn"))
+        if len(actions) == 1: # Only end turn
+             self.status_signal.emit("END TURN")
              self.arrow_signal.emit(None, None)
              self.highlight_signal.emit(None)
 
@@ -382,10 +382,10 @@ class AssistantWorker(QThread):
         for a in actions:
             print(f"  - {a}")
 
-        # Envoyer la file complète
+        # Send full queue
         self.action_queue_signal.emit(actions)
         
-        # Winrate basique
+        # Basic winrate
         my_stats = sum(m.attack + m.health for m in local_player.board if hasattr(m, 'attack'))
         opp_stats = sum(m.attack + m.health for m in self.game.players[1].board if hasattr(m, 'attack'))
         base_wr = 0.5 + (my_stats - opp_stats) * 0.02
