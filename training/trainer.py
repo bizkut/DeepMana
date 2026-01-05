@@ -44,6 +44,7 @@ class Trainer:
         config_workers = 8
         config_batch = 64
         config_mcts = 25
+        config_games = 40
         
         # Load from JSON if available (GUI Settings)
         config_device = "auto"  # Default: auto-detect
@@ -55,15 +56,16 @@ class Trainer:
                     config_workers = data.get("workers", 8)
                     config_batch = data.get("batch_size", 64)
                     config_mcts = data.get("mcts_sims", 25)
+                    config_games = data.get("games_per_iter", 40)
                     config_device = data.get("device", "auto")
-                    print(f"Loaded config: Workers={config_workers}, Batch={config_batch}, MCTS={config_mcts}, Device={config_device}")
+                    print(f"Loaded config: Workers={config_workers}, Batch={config_batch}, MCTS={config_mcts}, Games={config_games}, Device={config_device}")
         except:
             pass
             
         self.batch_size = config_batch
         self.epochs_per_iter = 5
         self.num_iterations = 120
-        self.games_per_iter = 40          
+        self.games_per_iter = config_games
         self.mcts_sims = config_mcts 
         self.buffer_capacity = 100000
         
