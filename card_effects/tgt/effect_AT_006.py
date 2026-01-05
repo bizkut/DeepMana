@@ -1,0 +1,15 @@
+"""Effect for Dalaran Aspirant (AT_006).
+
+Card Text: <b>Spell Damage +1</b>
+<b>Inspire:</b> Gain <b>Spell Damage +1</b>.
+"""
+
+from simulator.enums import CardType
+
+def battlecry(game, source, target):
+    player = source.controller
+    opponent = player.opponent
+
+    if target:
+        target._attack += 1
+        target._max_health += 1

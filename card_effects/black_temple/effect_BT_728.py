@@ -1,0 +1,12 @@
+"""Effect for Disguised Wanderer (BT_728).
+
+Card Text: <b>Deathrattle:</b> Summon a 9/1 Inquisitor.
+"""
+
+from simulator.enums import CardType
+
+def deathrattle(game, source):
+    player = source.controller
+    opponent = player.opponent
+
+    game.summon_token(player, "BT_728t")
