@@ -1,0 +1,14 @@
+"""Effect for Elite Tauren Chieftain (VAN_PRO_001).
+
+Card Text: <b>Battlecry:</b> Give both players the power to ROCK! (with a Power Chord card)
+"""
+
+from simulator.enums import CardType
+
+def battlecry(game, source, target):
+    player = source.controller
+    opponent = player.opponent
+
+    if target:
+        target._attack += 1
+        target._max_health += 1

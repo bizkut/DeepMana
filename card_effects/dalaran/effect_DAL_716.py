@@ -1,0 +1,12 @@
+"""Effect for Vendetta (DAL_716).
+
+Card Text: Deal $4 damage to a minion. Costs (0) if you're holding a card from another class.
+"""
+
+from simulator.enums import CardType
+
+def on_play(game, source, target):
+    player = source.controller
+    opponent = player.opponent
+
+    if target: game.deal_damage(target, 4, source)

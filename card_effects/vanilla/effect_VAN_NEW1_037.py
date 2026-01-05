@@ -1,0 +1,14 @@
+"""Effect for Master Swordsmith (VAN_NEW1_037).
+
+Card Text: At the end of your turn, give another random friendly minion +1 Attack.
+"""
+
+from simulator.enums import CardType
+
+def battlecry(game, source, target):
+    player = source.controller
+    opponent = player.opponent
+
+    if target:
+        target._attack += 1
+        target._max_health += 1
