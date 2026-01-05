@@ -266,8 +266,22 @@ class LogParser:
 
     def _handle_show_entity(self, entity_id: int, card_id: str, line: str = ""):
         """Handle revealed cards (opponent's cards becoming known)."""
+        entity = None
+        
         if entity_id in self.entity_map:
             entity = self.entity_map[entity_id]
+        else:
+            # Entity doesn't exist yet - create a placeholder and add to map
+            # Try to determine player from line (zone=HAND usually has player info)
+            player_id = 1  # Default to player 1
+            player_match = re.search(r'player=(\d+)', line)
+            if player_match:
+                player_id = int(player_match.group(1))
+            
+            # Create the entity
+            entity = self._create_placeholder_entity(entity_id, player_id)
+        
+        if entity:
             # Update the card's identity
             if hasattr(entity, 'card_id'):
                 entity.card_id = card_id
@@ -286,7 +300,7 @@ class LogParser:
             
             # Update zone if present in the SHOW_ENTITY line
             if line:
-                zone_match = re.search(r'zone=(\w+)', line, re.IGNORECASE)
+                zone_match = re.search(r'zone=(\\w+)', line, re.IGNORECASE)
                 if zone_match:
                     zone_str = zone_match.group(1).upper()
                     try:

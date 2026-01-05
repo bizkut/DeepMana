@@ -155,6 +155,7 @@ class AssistantWorker(QThread):
         
         # Get perspective (1 = local player is P1, 2 = local player is P2)
         perspective = 1 if self.parser.local_player_id in [None, 1] else 2
+        print(f"[DEBUG] local_player_id={self.parser.local_player_id}, perspective={perspective}")
         state = GameState.from_simulator_game(self.game, perspective_player_id=perspective)
         
         # === USE ALPHAZERO MODEL ===
