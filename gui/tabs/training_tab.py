@@ -6,6 +6,25 @@ import os
 import json
 from training.trainer import Trainer
 
+import sys
+import io
+
+class StdoutRedirector(io.StringIO):
+    """Captures stdout and emits via signal."""
+    def __init__(self, signal):
+        super().__init__()
+        self.signal = signal
+        self.original_stdout = sys.stdout
+        
+    def write(self, text):
+        if text.strip():  # Only emit non-empty lines
+            self.signal.emit(text.rstrip())
+        self.original_stdout.write(text)  # Also print to terminal
+        
+    def flush(self):
+        self.original_stdout.flush()
+
+
 class TrainingWorker(QThread):
     stats_signal = pyqtSignal(dict)
     log_signal = pyqtSignal(str)
@@ -17,6 +36,11 @@ class TrainingWorker(QThread):
         self.stop_requested = False
         
     def run(self):
+        # Redirect stdout to capture print statements
+        redirector = StdoutRedirector(self.log_signal)
+        old_stdout = sys.stdout
+        sys.stdout = redirector
+        
         try:
             # Initialize trainer in worker thread (not main thread!)
             self.status_signal.emit("LOADING MODEL...")
@@ -34,6 +58,8 @@ class TrainingWorker(QThread):
             traceback.print_exc()
             self.log_signal.emit(f"Error: {e}")
             self.status_signal.emit("ERROR")
+        finally:
+            sys.stdout = old_stdout  # Restore stdout
     
     def request_stop(self):
         if self.trainer:

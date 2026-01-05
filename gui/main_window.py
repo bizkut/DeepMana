@@ -105,6 +105,7 @@ class MainWindow(QMainWindow):
         self.console.setReadOnly(True)
         self.console.setFixedHeight(140)
         self.console.setPlaceholderText("System logs...")
+        self.console.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)  # Enable horizontal scroll
         self.container_layout.addWidget(self.console)
         
         # Initialize Pages
