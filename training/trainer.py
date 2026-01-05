@@ -78,7 +78,8 @@ class Trainer:
         self.collector = DataCollector(
             self.model, 
             self.buffer, 
-            num_workers=config_workers
+            num_workers=config_workers,
+            device=self.device
         )
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.stop_flag = False
@@ -129,9 +130,8 @@ class Trainer:
                 print(f"  [Curriculum] Increasing MCTS simulations: {self.mcts_sims} -> {current_mcts}")
                 self.mcts_sims = current_mcts
             
-            # 1. Self-Play
-            self.model.eval() # Collect in eval mode
-            self.model.to("cpu")  # Move to CPU for thread safety (threads share model)
+            # 1. Self-Play (model stays on GPU - inference server uses it)
+            self.model.eval()
             winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
             
             # Check if stop was requested during collection
