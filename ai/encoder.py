@@ -51,23 +51,24 @@ class FeatureEncoder:
         
         # 2. Hand Cards
         hand_features = []
-        for card in p1.hand:
+        # Truncate to max hand size to ensure fixed tensor shape
+        for card in p1.hand[:self.max_hand]:
             hand_features.extend(self._encode_card(card))
-        hand_features.extend([0.0] * (self.card_dim * (self.max_hand - len(p1.hand))))
+        hand_features.extend([0.0] * (self.card_dim * (self.max_hand - len(p1.hand[:self.max_hand]))))
         
         # Opponent hand (Hidden - limited info)
         opp_hand_features = [0.0] * (self.card_dim * self.max_hand)
         
         # 3. Board Minions
         board_features = []
-        for minion in p1.board:
+        for minion in p1.board[:self.max_board]:
             board_features.extend(self._encode_card(minion))
-        board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p1.board))))
+        board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p1.board[:self.max_board]))))
         
         opp_board_features = []
-        for minion in p2.board:
+        for minion in p2.board[:self.max_board]:
             opp_board_features.extend(self._encode_card(minion))
-        opp_board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p2.board))))
+        opp_board_features.extend([0.0] * (self.card_dim * (self.max_board - len(p2.board[:self.max_board]))))
         
         # Combine
         full_vector = scalars + hand_features + opp_hand_features + board_features + opp_board_features
