@@ -53,8 +53,14 @@ class SettingsTab(QWidget):
         self.spin_mcts.setRange(10, 800)
         self.spin_mcts.setValue(25)
         
+        self.spin_games = QSpinBox()
+        self.spin_games.setRange(20, 200)
+        self.spin_games.setValue(40)
+        self.spin_games.setSingleStep(10)
+        
         form_layout.addRow(self.create_label("BATCH SIZE", "Number of training samples per neural update"), self.spin_batch)
         form_layout.addRow(self.create_label("MCTS SIMULATIONS", "Thinking steps per decision during games"), self.spin_mcts)
+        form_layout.addRow(self.create_label("GAMES PER ITERATION", "Self-play games per training cycle"), self.spin_games)
         
         self.layout.addWidget(card)
         
@@ -93,15 +99,28 @@ class SettingsTab(QWidget):
                     self.spin_workers.setValue(data.get("workers", 8))
                     self.spin_batch.setValue(data.get("batch_size", 64))
                     self.spin_mcts.setValue(data.get("mcts_sims", 25))
+                    self.spin_games.setValue(data.get("games_per_iter", 40))
             except:
                 pass
 
     def save_config(self):
-        data = {
+        # Load existing config to preserve fields not in GUI
+        existing = {}
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, 'r') as f:
+                    existing = json.load(f)
+            except:
+                pass
+        
+        # Update with GUI values
+        existing.update({
             "workers": self.spin_workers.value(),
             "batch_size": self.spin_batch.value(),
-            "mcts_sims": self.spin_mcts.value()
-        }
+            "mcts_sims": self.spin_mcts.value(),
+            "games_per_iter": self.spin_games.value()
+        })
+        
         with open(CONFIG_FILE, 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(existing, f, indent=4)
         print("Configuration saved!")
