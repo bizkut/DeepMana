@@ -9,20 +9,36 @@ from training.trainer import Trainer
 class TrainingWorker(QThread):
     stats_signal = pyqtSignal(dict)
     log_signal = pyqtSignal(str)
+    status_signal = pyqtSignal(str)  # New: report status changes
     
     def __init__(self):
         super().__init__()
-        self.trainer = Trainer()
+        self.trainer = None  # Initialized in run() to avoid blocking GUI
+        self.stop_requested = False
         
     def run(self):
         try:
+            # Initialize trainer in worker thread (not main thread!)
+            self.status_signal.emit("LOADING MODEL...")
+            self.trainer = Trainer()
+            
             # Override iteration_callback to send signals
             def iteration_callback(stats):
                 self.stats_signal.emit(stats)
-                
+            
+            self.status_signal.emit("TRAINING")
             self.trainer.train(iteration_callback=iteration_callback)
+            self.status_signal.emit("COMPLETED")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             self.log_signal.emit(f"Error: {e}")
+            self.status_signal.emit("ERROR")
+    
+    def request_stop(self):
+        if self.trainer:
+            self.trainer.stop_flag = True
+
 
 class TrainingTab(QWidget):
     def __init__(self):
@@ -120,18 +136,35 @@ class TrainingTab(QWidget):
     def start_training(self):
         self.worker = TrainingWorker()
         self.worker.stats_signal.connect(self.update_data)
+        self.worker.status_signal.connect(self.update_status)  # New connection
+        self.worker.finished.connect(self.on_training_finished)
         self.worker.start()
         
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
-        self.stat_status.val_label.setText("INITIALIZING")
-        self.stat_status.val_label.setStyleSheet("color: #0078d4; font-size: 28px; font-weight: 600;")
+        self.stat_status.val_label.setText("STARTING...")
+        self.stat_status.val_label.setStyleSheet("color: #ffa500; font-size: 28px; font-weight: 600;")
 
     def stop_training(self):
         if self.worker:
-            self.worker.trainer.stop_flag = True
+            self.worker.request_stop()  # Use safe method
             self.stat_status.val_label.setText("STOPPING...")
             self.btn_stop.setEnabled(False)
+    
+    def update_status(self, status):
+        """Handle status updates from worker thread."""
+        self.stat_status.val_label.setText(status)
+        if status == "ERROR":
+            self.stat_status.val_label.setStyleSheet("color: #ff4444; font-size: 28px; font-weight: 600;")
+        elif status == "COMPLETED":
+            self.stat_status.val_label.setStyleSheet("color: #44ff44; font-size: 28px; font-weight: 600;")
+        else:
+            self.stat_status.val_label.setStyleSheet("color: #0078d4; font-size: 28px; font-weight: 600;")
+    
+    def on_training_finished(self):
+        """Handle training completion."""
+        self.btn_start.setEnabled(True)
+        self.btn_stop.setEnabled(False)
 
     def update_data(self, stats):
         iteration = stats.get("iteration", 0)
