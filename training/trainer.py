@@ -65,7 +65,7 @@ class Trainer:
             
         self.batch_size = config_batch
         self.epochs_per_iter = 5
-        self.num_iterations = 120
+        self.num_iterations = self.config.get("num_iterations", 500)  # Configurable via training_config.json
         self.games_per_iter = config_games
         self.mcts_sims = config_mcts 
         self.buffer_capacity = 100000
