@@ -130,6 +130,12 @@ class LogParser:
         if show_match:
             entity_id = int(show_match.group(1))
             card_id = show_match.group(2)
+            
+            # Track for inline tags
+            self.last_entity_id = entity_id
+            
+            # Handle the reveal
+            self._handle_show_entity(entity_id, card_id, line)
             # Check zone using entity map
             zone = "Unknown"
             if entity_id in self.entity_map:
@@ -224,7 +230,7 @@ class LogParser:
                     pass
         return False
 
-    def _handle_show_entity(self, entity_id: int, card_id: str):
+    def _handle_show_entity(self, entity_id: int, card_id: str, line: str = ""):
         """Handle revealed cards (opponent's cards becoming known)."""
         if entity_id in self.entity_map:
             entity = self.entity_map[entity_id]
@@ -235,6 +241,17 @@ class LogParser:
                 card_data = CardDatabase.get_card(card_id)
                 if card_data:
                     entity.data = card_data
+            
+            # Update zone if present in the SHOW_ENTITY line
+            if line:
+                zone_match = re.search(r'zone=(\w+)', line, re.IGNORECASE)
+                if zone_match:
+                    zone_str = zone_match.group(1).upper()
+                    try:
+                        new_zone = Zone[zone_str]
+                        self._move_to_zone(entity, new_zone)
+                    except KeyError:
+                        pass
                     
     def _handle_attack(self, attacker_id: int, target_id: int):
         """Track attack events for visualization."""
@@ -288,6 +305,47 @@ class LogParser:
                         entity.health = int(value)
                         state_changed = True
                     except ValueError:
+                        pass
+        
+        elif tag == "ATK":
+            if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity and hasattr(entity, 'attack'):
+                    try:
+                        entity.attack = int(value)
+                        state_changed = True
+                    except ValueError:
+                        pass
+                        
+        elif tag == "COST":
+            if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity: # Cost might be on card or placeholder
+                    try:
+                        # Some entities might rely on data.cost, but we try to set instance cost
+                        entity.cost = int(value)
+                        state_changed = True
+                    except (ValueError, AttributeError):
+                        pass
+
+        elif tag == "DAMAGE":
+            if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity:
+                    try:
+                        entity.damage = int(value)
+                        state_changed = True
+                    except (ValueError, AttributeError):
+                        pass
+                        
+        elif tag == "FROZEN":
+            if entity_id != -1:
+                entity = self._get_or_create_entity(entity_id, entity_data)
+                if entity:
+                    try:
+                        entity.frozen = (value == "1")
+                        state_changed = True
+                    except (ValueError, AttributeError):
                         pass
 
         # === MANA UPDATES ===
