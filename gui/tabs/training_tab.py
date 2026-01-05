@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-                             QLabel, QPushButton, QProgressBar, QApplication)
+                             QLabel, QPushButton, QProgressBar, QApplication, QSpinBox)
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QColor, QFont
 import os
@@ -131,6 +131,39 @@ class TrainingTab(QWidget):
         stats_row.addWidget(self.stat_wr)
         self.dash_layout.addLayout(stats_row)
         
+        # Settings Row (Iterations)
+        settings_row = QHBoxLayout()
+        settings_row.setSpacing(15)
+        
+        iter_label = QLabel("ITERATIONS:")
+        iter_label.setStyleSheet("color: #8a8a8a; font-size: 12px; font-weight: 600;")
+        
+        self.iter_spinbox = QSpinBox()
+        self.iter_spinbox.setRange(10, 10000)
+        self.iter_spinbox.setValue(self._load_iterations())
+        self.iter_spinbox.setSingleStep(50)
+        self.iter_spinbox.setFixedWidth(100)
+        self.iter_spinbox.setStyleSheet("""
+            QSpinBox {
+                background: #2d2d2d;
+                color: #ffffff;
+                border: 1px solid #404040;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-size: 14px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 20px;
+            }
+        """)
+        self.iter_spinbox.valueChanged.connect(self._save_iterations)
+        
+        settings_row.addStretch()
+        settings_row.addWidget(iter_label)
+        settings_row.addWidget(self.iter_spinbox)
+        settings_row.addStretch()
+        self.dash_layout.addLayout(settings_row)
+        
         action_layout = QHBoxLayout()
         self.btn_start = QPushButton("START TRAINING")
         self.btn_start.setObjectName("neural-btn")
@@ -150,6 +183,30 @@ class TrainingTab(QWidget):
         self.dash_layout.addLayout(action_layout)
         self.layout.addWidget(self.dash_card)
         self.layout.addStretch()
+    
+    def _load_iterations(self):
+        """Load iterations from config file."""
+        try:
+            if os.path.exists("training_config.json"):
+                with open("training_config.json", 'r') as f:
+                    data = json.load(f)
+                    return data.get("num_iterations", 500)
+        except:
+            pass
+        return 500
+    
+    def _save_iterations(self, value):
+        """Save iterations to config file."""
+        try:
+            data = {}
+            if os.path.exists("training_config.json"):
+                with open("training_config.json", 'r') as f:
+                    data = json.load(f)
+            data["num_iterations"] = value
+            with open("training_config.json", 'w') as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            print(f"Failed to save iterations: {e}")
 
     def create_mini_stat(self, label, value):
         w = QWidget()
