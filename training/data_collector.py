@@ -137,20 +137,21 @@ class DataCollector:
                         i,
                         verbose
                     ))
-            
-            for future in as_completed(futures):
-                try:
-                    trajectory, winner = future.result()
-                    self.buffer.add_game(trajectory, winner)
-                    winners[winner] = winners.get(winner, 0) + 1
-                    
-                    completed_games += 1
-                    elapsed = time.time() - start_time
-                    avg_time = elapsed / completed_games
-                    
-                    winner_str = f"Player {winner}" if winner > 0 else "Draw/Timeout"
-                    print(f"[{completed_games}/{num_games}] Game completed. Winner: {winner_str}. Buffer: {len(self.buffer)}. Avg: {avg_time:.2f}s/game")
-                except Exception as e:
-                    print(f"Game worker failed: {e}")
+                
+                # Collect results INSIDE the with block
+                for future in as_completed(futures):
+                    try:
+                        trajectory, winner = future.result()
+                        self.buffer.add_game(trajectory, winner)
+                        winners[winner] = winners.get(winner, 0) + 1
+                        
+                        completed_games += 1
+                        elapsed = time.time() - start_time
+                        avg_time = elapsed / completed_games
+                        
+                        winner_str = f"Player {winner}" if winner > 0 else "Draw/Timeout"
+                        print(f"[{completed_games}/{num_games}] Game completed. Winner: {winner_str}. Buffer: {len(self.buffer)}. Avg: {avg_time:.2f}s/game")
+                    except Exception as e:
+                        print(f"Game worker failed: {e}")
                     
         return winners
