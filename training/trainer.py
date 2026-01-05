@@ -53,6 +53,7 @@ class Trainer:
             if os.path.exists("training_config.json"):
                 with open("training_config.json", 'r') as f:
                     data = json.load(f)
+                    self.config.update(data)  # Store in self.config!
                     config_workers = data.get("workers", 8)
                     config_batch = data.get("batch_size", 64)
                     config_mcts = data.get("mcts_sims", 25)

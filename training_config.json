@@ -1,7 +1,7 @@
 {
     "workers": 12,
     "batch_size": 64,
-    "mcts_sims": 40,
+    "mcts_sims": 800,
     "games_per_iter": 80,
     "device": "auto",
     "batch_inference": false,
