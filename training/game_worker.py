@@ -75,6 +75,12 @@ class RemoteMCTS:
         else:
             root = MCTSNode(state=game_state, parent=None)
         
+        # Add Dirichlet noise to root for exploration (AlphaZero style)
+        if not root.is_expanded:
+            self._expand_with_noise(root, is_root=True)
+        else:
+            self._add_noise_to_root(root)
+        
         for _ in range(self.num_simulations):
             node = root
             
@@ -94,6 +100,24 @@ class RemoteMCTS:
         # Get action probabilities
         action_probs = self._get_action_probs(root)
         return action_probs, root
+    
+    def _add_noise_to_root(self, root):
+        """Add Dirichlet noise to existing root children for exploration."""
+        if not root.children:
+            return
+        epsilon = 0.25  # Weight of noise vs prior
+        alpha = 0.3  # Dirichlet concentration (lower = more varied)
+        
+        noise = np.random.dirichlet([alpha] * len(root.children))
+        for i, child in enumerate(root.children.values()):
+            child.prior_prob = (1 - epsilon) * child.prior_prob + epsilon * noise[i]
+    
+    def _expand_with_noise(self, node, is_root=False) -> float:
+        """Expand node and add Dirichlet noise if root."""
+        value = self._expand(node)
+        if is_root:
+            self._add_noise_to_root(node)
+        return value
         
     def _select_child(self, node):
         """UCB selection."""
