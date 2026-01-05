@@ -30,7 +30,17 @@ class AIBrain:
     def __init__(self, input_dim: int = 870, action_dim: int = 300, use_gpu: bool = True):
         self.input_dim = input_dim
         self.action_dim = action_dim
-        self.device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
+        
+        # Device selection with MPS support for Apple Silicon
+        if use_gpu:
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device("cpu")
         
         # Initialize model
         self.model = HearthstoneModel(input_dim, action_dim).to(self.device)

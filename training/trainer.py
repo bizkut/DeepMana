@@ -45,6 +45,7 @@ class Trainer:
         config_mcts = 25
         
         # Load from JSON if available (GUI Settings)
+        config_device = "auto"  # Default: auto-detect
         try:
             import json
             if os.path.exists("training_config.json"):
@@ -53,7 +54,8 @@ class Trainer:
                     config_workers = data.get("workers", 8)
                     config_batch = data.get("batch_size", 64)
                     config_mcts = data.get("mcts_sims", 25)
-                    print(f"Loaded config: Workers={config_workers}, Batch={config_batch}, MCTS={config_mcts}")
+                    config_device = data.get("device", "auto")
+                    print(f"Loaded config: Workers={config_workers}, Batch={config_batch}, MCTS={config_mcts}, Device={config_device}")
         except:
             pass
             
@@ -63,7 +65,9 @@ class Trainer:
         self.games_per_iter = 40          
         self.mcts_sims = config_mcts 
         self.buffer_capacity = 100000
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Device selection with MPS support for Apple Silicon
+        self.device = self._select_device(config_device)
         
         # Components
         self.model = HearthstoneModel(self.input_dim, self.action_dim).to(self.device)
@@ -79,12 +83,39 @@ class Trainer:
         self.writer = SummaryWriter(log_dir=self.run_dir)
         print(f"TensorBoard: tensorboard --logdir={self.run_dir}")
         
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self.device.type == "cuda":
             print(f"[OK] CUDA Detected: {torch.cuda.get_device_name(0)}")
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() and self.device.type == "mps":
+            print(f"[OK] MPS (Apple Silicon GPU) Detected")
         else:
-            print("[WARNING] CUDA NOT Detected. Training will be slow on CPU.")
+            print("[INFO] Using CPU for training.")
             
         print(f"TensorBoard: tensorboard --logdir=runs")
+    
+    def _select_device(self, config_device: str) -> torch.device:
+        """Select compute device based on config and availability."""
+        config_device = config_device.lower()
+        
+        if config_device == "cpu":
+            return torch.device("cpu")
+        elif config_device == "cuda":
+            if torch.cuda.is_available():
+                return torch.device("cuda")
+            print("[WARNING] CUDA requested but not available, falling back to CPU")
+            return torch.device("cpu")
+        elif config_device == "mps":
+            if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                return torch.device("mps")
+            print("[WARNING] MPS requested but not available, falling back to CPU")
+            return torch.device("cpu")
+        else:  # "auto" or any other value
+            # Priority: CUDA > MPS > CPU
+            if torch.cuda.is_available():
+                return torch.device("cuda")
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                return torch.device("mps")
+            else:
+                return torch.device("cpu")
         
     def train(self, iteration_callback=None):
         """Main training loop."""

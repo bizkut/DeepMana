@@ -33,7 +33,12 @@ class SettingsTab(QWidget):
         self.spin_workers.setSuffix(" cores")
         
         self.combo_device = QComboBox()
-        self.combo_device.addItems(["Auto (CUDA if available)", "Force CPU", "Force CUDA"])
+        self.combo_device.addItems([
+            "Auto (CUDA > MPS > CPU)",  # Auto-detect best available
+            "Force CPU",
+            "Force CUDA",
+            "Force MPS"  # Apple Silicon GPU
+        ])
         
         form_layout.addRow(self.create_label("CPU WORKERS", "Parallel processes for self-play collection"), self.spin_workers)
         form_layout.addRow(self.create_label("COMPUTE DEVICE", "Hardware accelerator used for neural updates"), self.combo_device)
@@ -88,14 +93,21 @@ class SettingsTab(QWidget):
                     self.spin_workers.setValue(data.get("workers", 8))
                     self.spin_batch.setValue(data.get("batch_size", 64))
                     self.spin_mcts.setValue(data.get("mcts_sims", 25))
+                    # Device: map stored name to combo index
+                    device_map = {"auto": 0, "cpu": 1, "cuda": 2, "mps": 3}
+                    device = data.get("device", "auto")
+                    self.combo_device.setCurrentIndex(device_map.get(device, 0))
             except:
                 pass
 
     def save_config(self):
+        # Map combo index to device name
+        device_options = ["auto", "cpu", "cuda", "mps"]
         data = {
             "workers": self.spin_workers.value(),
             "batch_size": self.spin_batch.value(),
-            "mcts_sims": self.spin_mcts.value()
+            "mcts_sims": self.spin_mcts.value(),
+            "device": device_options[self.combo_device.currentIndex()]
         }
         with open(CONFIG_FILE, 'w') as f:
             json.dump(data, f, indent=4)
