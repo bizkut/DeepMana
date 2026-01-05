@@ -100,6 +100,10 @@ class SettingsTab(QWidget):
                     self.spin_batch.setValue(data.get("batch_size", 64))
                     self.spin_mcts.setValue(data.get("mcts_sims", 25))
                     self.spin_games.setValue(data.get("games_per_iter", 40))
+                    # Device: map stored name to combo index
+                    device_map = {"auto": 0, "cpu": 1, "cuda": 2, "mps": 3}
+                    device = data.get("device", "auto")
+                    self.combo_device.setCurrentIndex(device_map.get(device, 0))
             except:
                 pass
 
@@ -114,11 +118,13 @@ class SettingsTab(QWidget):
                 pass
         
         # Update with GUI values
+        device_options = ["auto", "cpu", "cuda", "mps"]
         existing.update({
             "workers": self.spin_workers.value(),
             "batch_size": self.spin_batch.value(),
             "mcts_sims": self.spin_mcts.value(),
-            "games_per_iter": self.spin_games.value()
+            "games_per_iter": self.spin_games.value(),
+            "device": device_options[self.combo_device.currentIndex()]
         })
         
         with open(CONFIG_FILE, 'w') as f:
