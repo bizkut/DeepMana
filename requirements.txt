@@ -2,6 +2,7 @@
 torch>=2.0.0
 pytorch-lightning>=2.0.0
 onnxruntime>=1.16.0  # Use onnxruntime-gpu on Linux/Windows with NVIDIA GPU
+tensorboard>=2.14.0  # Training visualization
 
 # Simulator
 fireplace @ git+https://github.com/jleclanche/fireplace.git
@@ -9,6 +10,9 @@ fireplace @ git+https://github.com/jleclanche/fireplace.git
 # GUI
 PyQt6>=6.5.0
 matplotlib>=3.7.0
+qtawesome>=1.2.0  # Font Awesome icons for Qt
+pyqtdarktheme  # Dark theme for PyQt (imported as qdarktheme)
+pyqtgraph>=0.13.0  # Real-time plotting
 
 # API
 fastapi>=0.100.0
