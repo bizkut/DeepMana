@@ -152,16 +152,45 @@ class AIBrain:
         """Create mask from GameState object."""
         mask = np.zeros(self.action_dim, dtype=np.float32)
         
-        # This assumes GameState has a helper or we manually check
-        # Actually, HearthstoneGame wrapper has get_valid_action_mask()
-        # But here we only have the state.
+        p = state.friendly_player
+        op = state.enemy_player
         
-        # Simplified for now: just allow the model's top choice if we can't mask perfectly
-        # In a real scenario, we'd need information from the simulator about legal actions.
-        # However, for a Live Assistant, we can try to guess valid actions from state.
+        # 1. Play Card (0-9)
+        # Check hand size and mana
+        for i, card in enumerate(p.hand):
+            if i >= 10: break # Action space limited to 10 cards
+            
+            # Basic check: have enough mana?
+            # Note: This doesn't account for dynamic cost reductions perfectly unless parser tracks them well.
+            # But it's better than nothing.
+            if card.cost <= p.mana:
+                # Map card index to action index
+                # Assuming simple mapping: 0-9 are Play Card 0-9
+                mask[i] = 1.0
+                
+        # 2. Attack (10-16 for minions, + Hero)
+        # Minions on board
+        for i, minion in enumerate(p.board):
+            if i >= 7: break
+            
+            # Can attack? (Not frozen, not asleep, has attack > 0)
+            # Parser might not track "asleep" perfectly, but ATK > 0 is a good check
+            if minion.atk > 0 and not minion.frozen:
+                 # TODO: Check if already attacked? Parser tracking needed.
+                 # Shift index: 10 + i
+                 mask[10 + i] = 1.0
+                 
+        # Hero Attack (Action 17)
+        if p.hero and p.hero.atk > 0 and not p.hero.frozen:
+             mask[17] = 1.0
+             
+        # 3. Hero Power (Action 18)
+        if p.hero and (p.hero.power.cost <= p.mana) and not p.hero.power.exhausted:
+            mask[18] = 1.0
+            
+        # 4. End Turn (Action 19)
+        mask[19] = 1.0
         
-        # Let's say we trust the model's top 10 choices for now or implement a basic mask.
-        mask.fill(1.0) 
         return mask
     
     def get_value_estimate(self, state: GameState) -> float:
