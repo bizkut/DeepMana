@@ -6,5 +6,6 @@
     "device": "auto",
     "batch_inference": false,
     "inference_batch_size": 128,
-    "inference_timeout_ms": 10
+    "inference_timeout_ms": 10,
+    "force_play": true
 }

@@ -235,44 +235,28 @@ def play_game_process(
     request_queue: Queue,
     result_queue: Queue,
     mcts_sims: int,
-    verbose: bool = False
+    verbose: bool = False,
+    force_play: bool = True  # New flag
 ) -> Tuple[List, int]:
-    """
-    Play a single game in a worker process.
-    Returns trajectory and winner.
-    """
-    # Initialize (each process loads its own copy)
+    # ... (init code) ...
+    # Initialize components
     from simulator import CardDatabase
     db = CardDatabase.get_instance()
-    if not db.is_loaded:
-        db.load()
-        
+    if not db.is_loaded: db.load()
     encoder = FeatureEncoder()
-    
-    # Randomize perspective
     perspective = 1 if np.random.random() > 0.5 else 2
-    
     pid = os.getpid()
-    if verbose:
-        print(f"  [Worker {pid}] Starting Game (Perspective: P{perspective})")
-        
+    if verbose: print(f"  [Worker {pid}] Starting Game (Perspective: P{perspective})")
     env = HearthstoneGame(perspective=perspective)
     env.reset()
-    
     trajectory = []
     step_count = 0
     max_steps = 500
     
-    # Create remote MCTS
-    mcts = RemoteMCTS(
-        worker_id=worker_id,
-        request_queue=request_queue,
-        result_queue=result_queue,
-        encoder=encoder,
-        num_simulations=mcts_sims
-    )
-    
+    mcts = RemoteMCTS(worker_id, request_queue, result_queue, encoder, num_simulations=mcts_sims)
     root_node = None
+    
+    from ai.actions import ActionType
     
     while not env.is_game_over and step_count < max_steps:
         # Update perspective
@@ -281,12 +265,20 @@ def play_game_process(
         
         state = env.get_state()
         valid_actions = env.get_valid_actions()
+        if not valid_actions: break
         
-        if not valid_actions:
-            break
-            
         # MCTS search
         action_probs, root_node = mcts.search(env.game, root_node)
+        
+        # Apply Force Play logic: Mask END_TURN if we have plays/attacks
+        if force_play:
+            has_plays = any(a.action_type in (ActionType.PLAY_CARD, ActionType.ATTACK, ActionType.HERO_POWER) for a in valid_actions)
+            if has_plays:
+                # Zero out END_TURN probability
+                for i, act in enumerate(valid_actions):
+                    if act.action_type == ActionType.END_TURN:
+                        idx = act.to_index()
+                        action_probs[idx] = 0.0
         
         # Sample action
         valid_indices = [a.to_index() for a in valid_actions]
@@ -295,6 +287,7 @@ def play_game_process(
         if prob_sum > 0:
             valid_probs = [p / prob_sum for p in valid_probs]
         else:
+            # Fallback (e.g. if we masked END_TURN but it was the only prob)
             valid_probs = [1.0 / len(valid_actions)] * len(valid_actions)
             
         chosen_idx = np.random.choice(len(valid_actions), p=valid_probs)

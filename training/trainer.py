@@ -132,7 +132,8 @@ class Trainer:
             
             # 1. Self-Play (model stays on GPU - inference server uses it)
             self.model.eval()
-            winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
+            force_play_enabled = self.config.get("force_play", True)
+            winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True, force_play=force_play_enabled)
             
             # Check if stop was requested during collection
             if self.stop_flag or self.collector.stop_flag:

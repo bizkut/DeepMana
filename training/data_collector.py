@@ -65,7 +65,7 @@ class DataCollector:
             )
             self.inference_server.start()
             
-    def collect_games(self, num_games: int, mcts_sims: int = 25, verbose: bool = False) -> Dict[int, int]:
+    def collect_games(self, num_games: int, mcts_sims: int = 25, verbose: bool = False, force_play: bool = True) -> Dict[int, int]:
         """
         Collect self-play games using worker processes.
         
@@ -99,7 +99,8 @@ class DataCollector:
                         request_queue=request_queue,
                         result_queue=result_queues[0],
                         mcts_sims=mcts_sims,
-                        verbose=verbose
+                        verbose=verbose,
+                        force_play=force_play
                     )
                     self.buffer.add_game(trajectory, winner)
                     winners[winner] = winners.get(winner, 0) + 1
@@ -126,7 +127,8 @@ class DataCollector:
                         request_queue=request_queue,
                         result_queue=result_queues[worker_id],
                         mcts_sims=mcts_sims,
-                        verbose=verbose
+                        verbose=verbose,
+                        force_play=force_play
                     ))
                     
                 # Collect results
