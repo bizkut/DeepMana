@@ -202,9 +202,9 @@ class TrainingTab(QWidget):
         iteration = stats.get("iteration", 0)
         winners = stats.get("winners", {})
         total = sum(winners.values())
-        # Winrate = non-draw games (P1 or P2 wins) / total
-        wins = winners.get(1, 0) + winners.get(2, 0)
-        wr = (wins / total * 100) if total > 0 else 0
+        # P1 Winrate: How often P1 wins (ideal ~50% for balanced self-play)
+        p1_wins = winners.get(1, 0)
+        wr = (p1_wins / total * 100) if total > 0 else 50
         
         self.stat_iter.val_label.setText(str(iteration))
         self.stat_status.val_label.setText("LEARNING")
