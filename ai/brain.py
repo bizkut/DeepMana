@@ -73,9 +73,14 @@ class AIBrain:
         if not os.path.exists(models_dir):
             print(f"Models directory not found: {models_dir}")
             return False
+        
+        # Prefer latest_model.pt (shared via GitHub)
+        latest_model_path = os.path.join(models_dir, "latest_model.pt")
+        if os.path.exists(latest_model_path):
+            return self.load_model(latest_model_path)
             
-        # Find all checkpoints
-        checkpoints = [f for f in os.listdir(models_dir) if f.endswith('.pt')]
+        # Fall back to highest-numbered checkpoint
+        checkpoints = [f for f in os.listdir(models_dir) if f.startswith('checkpoint_iter_') and f.endswith('.pt')]
         if not checkpoints:
             print("No checkpoints found")
             return False

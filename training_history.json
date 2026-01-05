@@ -238,5 +238,85 @@
         },
         "avg_loss": 1.6251236045360564,
         "buffer_size": 26613
+    },
+    {
+        "iteration": 25,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5194214916229247,
+        "buffer_size": 6551
+    },
+    {
+        "iteration": 26,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.503479198217392,
+        "buffer_size": 6576
+    },
+    {
+        "iteration": 27,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5302150571346282,
+        "buffer_size": 13304
+    },
+    {
+        "iteration": 28,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5458144867420196,
+        "buffer_size": 19838
+    },
+    {
+        "iteration": 29,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5525377190113068,
+        "buffer_size": 26446
+    },
+    {
+        "iteration": 30,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5781575524806977,
+        "buffer_size": 33182
+    },
+    {
+        "iteration": 31,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5641325891017914,
+        "buffer_size": 39912
+    },
+    {
+        "iteration": 32,
+        "winners": {
+            "0": 0,
+            "1": 80,
+            "2": 0
+        },
+        "avg_loss": 1.5997052347660066,
+        "buffer_size": 46863
     }
 ]
