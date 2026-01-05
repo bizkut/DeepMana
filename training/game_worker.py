@@ -78,7 +78,7 @@ class RemoteMCTS:
         for _ in range(self.num_simulations):
             node = root
             
-            # Selection
+            # Selection - iterate over dict values
             while node.is_expanded and node.children:
                 node = self._select_child(node)
                 
@@ -100,12 +100,12 @@ class RemoteMCTS:
         best_score = -float('inf')
         best_child = None
         
-        for child in node.children:
+        for child in node.children.values():  # dict values
             if child.visit_count == 0:
                 ucb = float('inf')
             else:
                 q = child.value_sum / child.visit_count
-                u = self.c_puct * child.prior * np.sqrt(node.visit_count) / (1 + child.visit_count)
+                u = self.c_puct * child.prior_prob * np.sqrt(node.visit_count) / (1 + child.visit_count)
                 ucb = q + u
                 
             if ucb > best_score:
@@ -143,10 +143,11 @@ class RemoteMCTS:
             child = MCTSNode(
                 state=child_state, 
                 parent=node, 
-                action=act_obj,
-                prior=max(prior, 0.01)
+                action_idx=act_idx,
+                action_obj=act_obj
             )
-            node.children.append(child)
+            child.prior_prob = max(prior, 0.01)
+            node.children[act_idx] = child  # dict keyed by action index
             
         return value
         
@@ -171,11 +172,11 @@ class RemoteMCTS:
     def _get_action_probs(self, root) -> List[float]:
         """Get action probabilities from visit counts."""
         probs = [0.0] * ACTION_SPACE_SIZE
-        total_visits = sum(c.visit_count for c in root.children)
+        total_visits = sum(c.visit_count for c in root.children.values())
         
         if total_visits > 0:
-            for child in root.children:
-                idx = child.action.to_index()
+            for child in root.children.values():
+                idx = child.action_obj.to_index()
                 probs[idx] = child.visit_count / total_visits
                 
         return probs

@@ -27,6 +27,12 @@ class MCTSNode:
         if self.visit_count == 0:
             return 0
         return self.value_sum / self.visit_count
+    
+    def is_terminal(self) -> bool:
+        """Check if this node represents a terminal game state."""
+        if self.state is None:
+            return False
+        return getattr(self.state, 'ended', False)
 
 class MCTS:
     """
