@@ -135,7 +135,9 @@ class Trainer:
             
             # 1. Self-Play
             self.model.eval() # Collect in eval mode
-            self.model.to("cpu")
+            # When batch inference is disabled, move to CPU for thread safety (old behavior)
+            if not self.collector.batch_inference_enabled:
+                self.model.to("cpu")
             winners = self.collector.collect_games(self.games_per_iter, self.mcts_sims, verbose=True)
             
             # Log winner stats to TensorBoard
